@@ -6,6 +6,7 @@ import soundfile
 import pandas as pd
 import pickle
 import subprocess
+import torch
 from torch.utils.data import Dataset
 from torchvision.datasets.utils import download_url
 import config as cfg
@@ -309,7 +310,7 @@ class DataGenerator(object):
             # Transform data
             batch_feature = self.transform(batch_feature)
 
-            yield batch_feature, batch_event_matrix
+            yield torch.from_numpy(batch_feature), torch.from_numpy(batch_event_matrix)
 
     def generate_validate(self, data_type, max_validate_num=None):
         '''Generate feature and targets of a single audio file.

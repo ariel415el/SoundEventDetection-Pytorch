@@ -1,6 +1,6 @@
 import os
 import argparse
-import torch
+from tqdm import tqdm
 from torch import optim
 
 from utils import binary_crossentropy
@@ -14,11 +14,12 @@ def train(model, data_generator, num_steps, outputs_dir, device):
     optimizer = optim.Adam(model.parameters(), lr=1e-3, betas=(0.9, 0.999),
                            eps=1e-08, weight_decay=0., amsgrad=True)
 
-    for iterations in range(num_steps):
-        mel_features, event_labels = data_generator.generate_train()
+    iterations = 0
+    print("Training")
+    for (mel_features, event_labels) in tqdm(data_generator.generate_train()):
 
-        batch_features = mel_features.to(device)
-        event_labels = event_labels.to(device)
+        batch_features = mel_features.to(device).float()
+        event_labels = event_labels.to(device).float()
 
         model.train()
         batch_outputs = model(batch_features)
@@ -28,6 +29,7 @@ def train(model, data_generator, num_steps, outputs_dir, device):
         loss.backward()
         optimizer.step()
 
+        iterations+=1
         if iterations % 100 == 0:
             print(f"step: {iterations}, loss: {loss.item()}")
 
@@ -38,6 +40,8 @@ def train(model, data_generator, num_steps, outputs_dir, device):
 
             torch.save(checkpoint, os.path.join(outputs_dir, 'checkpoints', '{}_iterations.pth'.format(iterations)))
 
+        if iterations == num_steps:
+            break
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Example of parser. ')
@@ -57,5 +61,5 @@ if __name__ == '__main__':
 
     data_generator = get_batch_generator(args.dataset_dir, args.batch_size, train_or_eval='eval')
 
-    train(model, data_generator, num_steps=300, outputs_dir=args.output_root, device=device)
+    train(model, data_generator, num_steps=300, outputs_dir=args.outputs_root, device=device)
     # eval()
