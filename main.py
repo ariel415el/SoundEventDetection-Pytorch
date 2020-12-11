@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 
 def eval(model, data_generator, num_samples, outputs_dir, iteration, device):
     os.makedirs(outputs_dir, exist_ok=True)
-    for i, (mel_features, event_matrix, file_name) in enumerate(data_generator.generate_validate('validate', max_validate_num=num_samples)):
+    for idx, (mel_features, event_matrix, file_name) in enumerate(data_generator.generate_validate('validate', max_validate_num=num_samples)):
         model.eval()
         with torch.no_grad():
             model.eval()
@@ -52,7 +52,7 @@ def eval(model, data_generator, num_samples, outputs_dir, iteration, device):
         axs[0].set_yticklabels([0, cfg.mel_bins])
 
         fig.tight_layout()
-        plt.savefig(os.path.join(outputs_dir, f"Iter-{iteration}_img-{i}.png"))
+        plt.savefig(os.path.join(outputs_dir, f"Iter-{iteration}_img-{idx}.png"))
         plt.close(fig)
 
 def train(model, data_generator, num_steps, outputs_dir, device):
