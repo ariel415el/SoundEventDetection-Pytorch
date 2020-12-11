@@ -12,13 +12,14 @@ import matplotlib.pyplot as plt
 
 
 def eval(model, data_generator, num_samples, outputs_dir, iteration, device):
-    for i, (mel_features, event_matrix, file_name) in enumerate(data_generator.generate_validate()):
+    os.makedirs(outputs_dir, exist_ok=True)
+    for i, (mel_features, event_matrix, file_name) in enumerate(data_generator.generate_validate('validate', max_validate_num=num_samples)):
         model.eval()
         with torch.no_grad():
             model.eval()
             output_event = model(mel_features.to(device).float())
 
-        loss = binary_crossentropy(output_event, event_matrix)
+        loss = binary_crossentropy(output_event.cpu().float(), event_matrix.float())
         output_event = output_event.cpu().numpy()
         event_matrix = event_matrix.cpu().numpy()
 
@@ -28,7 +29,7 @@ def eval(model, data_generator, num_samples, outputs_dir, iteration, device):
 
         fig, axs = plt.subplots(3, 1, figsize=(15, 10))
 
-        logmel = mel_features[0][0] * data_generator.std + data_generator.mean,
+        logmel = mel_features[0][0] * data_generator.std + data_generator.mean
 
         axs[0].matshow(logmel.T, origin='lower', aspect='auto', cmap='jet')
         axs[1].matshow(event_matrix.T, origin='lower', aspect='auto', cmap='jet')
@@ -54,14 +55,11 @@ def eval(model, data_generator, num_samples, outputs_dir, iteration, device):
         plt.savefig(os.path.join(outputs_dir, f"Iter-{iteration}_img-{i}.png"))
         plt.close(fig)
 
-        if i == num_samples:
-            break
-
 def train(model, data_generator, num_steps, outputs_dir, device):
     # Optimizer
     optimizer = optim.Adam(model.parameters(), lr=1e-3, betas=(0.9, 0.999),
                            eps=1e-08, weight_decay=0., amsgrad=True)
-    os.makedirs(os.path.join(outputs_dir, 'checkpoints'))
+    os.makedirs(os.path.join(outputs_dir, 'checkpoints'), exist_ok=True)
     iterations = 0
     print("Training")
     for (mel_features, event_labels) in tqdm(data_generator.generate_train()):
@@ -78,8 +76,8 @@ def train(model, data_generator, num_steps, outputs_dir, device):
 
         iterations+=1
 
-        if iterations % 10 == 0:
-            eval(model, data_generator, 10, outputs_dir=os.path.join(outputs_dir, 'images'), iterations=iterations, device=device)
+        if iterations % 5 == 1:
+            eval(model, data_generator, 10, outputs_dir=os.path.join(outputs_dir, 'images'), iteration=iterations, device=device)
 
         if iterations % 100 == 0:
             for param_group in optimizer.param_groups:

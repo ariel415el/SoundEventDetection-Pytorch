@@ -47,17 +47,18 @@ def download_foa_data(data_dir, eval_only=False):
         download_url(url, data_dir, md5=md5, filename=name)
 
 
-def extract_foa_data(data_dir, eval_only=False):
-    subprocess.call(["unzip", os.path.join(data_dir, 'zipped','metadata_eval.zip'), "-d", data_dir])
-    subprocess.call(["unzip", os.path.join(data_dir, 'zipped', 'foa_eval.zip'), "-d", data_dir])
-    subprocess.call(f"cp -R {data_dir}/proj/asignal/DCASE2019/dataset/foa_eval -d {data_dir}/foa_eval".split(" "))
-    # subprocess.call(f"rm -rf {data_dir}/proj".split(" "))
-    shutil.rmtree(f"{data_dir}/proj")
+def extract_foa_data(data_dir, output_dir, eval_only=False):
+    os.makedirs(data_dir, exist_ok=True)
+    subprocess.call(["unzip", os.path.join(data_dir,'metadata_eval.zip'), "-d", output_dir])
+    subprocess.call(["unzip", os.path.join(data_dir, 'foa_eval.zip'), "-d", output_dir])
+
+    subprocess.call(f"cp -R {output_dir}/proj/asignal/DCASE2019/dataset/foa_eval -d {output_dir}/foa_eval".split(" "))
+    shutil.rmtree(f"{output_dir}/proj")
 
     if not eval_only:
-        subprocess.call(["unzip", os.path.join(data_dir,'zipped', 'metadata_dev.zip'), "-d", data_dir])
-        subprocess.call(f"zip -s 0 {os.path.join(data_dir,'zipped','foa_dev.zip')} --out {os.path.join(data_dir,'unsplit_foa_dev.zip')}".split(" "))
-        subprocess.call(f"unzip {os.path.join(data_dir,'zipped', 'unsplit_foa_dev.zip')} -d {data_dir}".split(" "))
+        subprocess.call(["unzip", os.path.join(data_dir, 'metadata_dev.zip'), "-d", output_dir])
+        subprocess.call(f"zip -s 0 {os.path.join(data_dir,'foa_dev.zip')} --out {os.path.join(output_dir,'unsplit_foa_dev.zip')}".split(" "))
+        subprocess.call(f"unzip {os.path.join(data_dir, 'unsplit_foa_dev.zip')} -d {output_dir}".split(" "))
 
 
 class LogMelExtractor(object):
@@ -353,12 +354,12 @@ class DataGenerator(object):
 
             feature = self.transform(feature)
 
-            features = feature[:, None, :, :],  # (channels_num, batch_size=1, frames_num, mel_bins)
-            event_matrix = event_matrix[None, :, :],  # (batch_size=1, frames_num, mel_bins)
+            features = feature[:, None, :, :]  # (channels_num, batch_size=1, frames_num, mel_bins)
+            event_matrix = event_matrix[None, :, :]  # (batch_size=1, frames_num, mel_bins)
             '''The None above indicates using an entire audio recording as 
             input and batch_size=1 in inference'''
 
-            yield features, event_matrix, name
+            yield torch.from_numpy(features), torch.from_numpy(event_matrix), name
 
     def transform(self, x):
         return (x - self.mean) / self.std
@@ -371,12 +372,15 @@ def get_batch_generator(data_dir, batch_size, train_or_eval='eval'):
     audio_dir = f"{extracted_data_dir}/foa_{train_or_eval}"
     meda_data_dir = f"{extracted_data_dir}/metadata_{train_or_eval}"
 
-    if not os.path.exists(audio_dir):
-        print("Downloading raw data")
+    if not os.path.exists(zipped_data_dir):
+        print("Downloading zipped data")
         download_foa_data(zipped_data_dir, eval_only=train_or_eval == 'eval')
-        extract_foa_data(extracted_data_dir, eval_only=train_or_eval == 'eval')
+    if not os.path.exists(audio_dir):
+        print("Extracting raw data")
+        extract_foa_data(zipped_data_dir, extracted_data_dir, eval_only=train_or_eval == 'eval')
     else:
         print("Using existing raw data")
+
 
     features_and_labels_dir = f"{processed_data_dir}/features_and_labels_{train_or_eval}"
     features_mean_std_file = f"{processed_data_dir}/mel_features_mean_std_{train_or_eval}.pkl"
@@ -384,7 +388,6 @@ def get_batch_generator(data_dir, batch_size, train_or_eval='eval'):
         print("preprocessing raw data")
         preprocess_data(audio_dir, meda_data_dir, output_dir=features_and_labels_dir, output_mean_std_file=features_mean_std_file)
     else:
-        print("Using existing mel features"
-              )
+        print("Using existing mel features")
     return DataGenerator(features_and_labels_dir, features_mean_std_file, batch_size)
 
