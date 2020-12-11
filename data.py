@@ -142,18 +142,16 @@ class LogMelExtractor(object):
 
 
 def read_multichannel_audio(audio_path, target_fs=None):
-    (multichannel_audio, fs) = soundfile.read(audio_path)
-    '''(samples, channels_num)'''
+    (multichannel_audio, sample_rate) = soundfile.read(audio_path)
 
-    if target_fs is not None and fs != target_fs:
+    if target_fs is not None and sample_rate != target_fs:
         (samples, channels_num) = multichannel_audio.shape
 
         multichannel_audio = np.array(
-            [librosa.resample(multichannel_audio[:, i], orig_sr=fs, target_sr=target_fs) for i in range(channels_num)]
+            [librosa.resample(multichannel_audio[:, i], orig_sr=sample_rate, target_sr=target_fs) for i in range(channels_num)]
                                         ).T
-        '''(samples, channels_num)'''
 
-    return multichannel_audio, fs
+    return multichannel_audio, target_fs
 
 def calculate_scalar_of_tensor(x):
     if x.ndim == 2:
@@ -372,6 +370,7 @@ def get_batch_generator(data_dir, batch_size, train_or_eval='eval'):
     audio_dir = f"{extracted_data_dir}/foa_{train_or_eval}"
     meda_data_dir = f"{extracted_data_dir}/metadata_{train_or_eval}"
 
+    # Download and extact data
     if not os.path.exists(zipped_data_dir):
         print("Downloading zipped data")
         download_foa_data(zipped_data_dir, eval_only=train_or_eval == 'eval')
@@ -381,7 +380,7 @@ def get_batch_generator(data_dir, batch_size, train_or_eval='eval'):
     else:
         print("Using existing raw data")
 
-
+    # Preprocess data: create mel feautes and labels
     features_and_labels_dir = f"{processed_data_dir}/features_and_labels_{train_or_eval}"
     features_mean_std_file = f"{processed_data_dir}/mel_features_mean_std_{train_or_eval}.pkl"
     if not os.path.exists(features_and_labels_dir):

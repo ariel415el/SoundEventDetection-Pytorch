@@ -32,8 +32,8 @@ def eval(model, data_generator, num_samples, outputs_dir, iteration, device):
         logmel = mel_features[0][0] * data_generator.std + data_generator.mean
 
         axs[0].matshow(logmel.T, origin='lower', aspect='auto', cmap='jet')
-        axs[1].matshow(event_matrix.T, origin='lower', aspect='auto', cmap='jet')
-        axs[2].matshow(output_event.T, origin='lower', aspect='auto', cmap='jet')
+        axs[1].matshow(event_matrix[0].T, origin='lower', aspect='auto', cmap='jet')
+        axs[2].matshow(output_event[0].T, origin='lower', aspect='auto', cmap='jet')
 
         axs[0].set_title('Log mel spectrogram', color='r')
         axs[1].set_title('Reference sound events', color='r')
@@ -76,22 +76,21 @@ def train(model, data_generator, num_steps, outputs_dir, device):
 
         iterations+=1
 
-        if iterations % 5 == 1:
-            eval(model, data_generator, 10, outputs_dir=os.path.join(outputs_dir, 'images'), iteration=iterations, device=device)
-
         if iterations % 100 == 0:
             for param_group in optimizer.param_groups:
                 param_group['lr'] *= 0.95
 
-        if iterations % 100 == 0:
+        if iterations % 1000 == 0:
             print(f"step: {iterations}, loss: {loss.item()}")
+
+            eval(model, data_generator, 10, outputs_dir=os.path.join(outputs_dir, 'images'), iteration=iterations, device=device)
 
             checkpoint = {
                 'iterations': iterations,
                 'model': model.state_dict(),
                 'optimizer': optimizer.state_dict()}
 
-            torch.save(checkpoint, os.path.join(outputs_dir, 'checkpoints', '{}_iterations.pth'.format(iterations)))
+            torch.save(checkpoint, os.path.join(outputs_dir, 'checkpoints', f"iterations_{iterations}.pth"))
 
         if iterations == num_steps:
             break
@@ -114,5 +113,5 @@ if __name__ == '__main__':
 
     data_generator = get_batch_generator(args.dataset_dir, args.batch_size, train_or_eval='eval')
 
-    train(model, data_generator, num_steps=300, outputs_dir=args.outputs_root, device=device)
+    train(model, data_generator, num_steps=5000, outputs_dir=args.outputs_root, device=device)
     # eval()
