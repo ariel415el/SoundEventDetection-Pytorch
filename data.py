@@ -6,10 +6,12 @@ import soundfile
 import pandas as pd
 import pickle
 import subprocess
+import shutil
 import torch
 from torch.utils.data import Dataset
 from torchvision.datasets.utils import download_url
 import config as cfg
+
 
 def download_foa_data(data_dir, eval_only=False):
     urls = [
@@ -46,14 +48,16 @@ def download_foa_data(data_dir, eval_only=False):
 
 
 def extract_foa_data(data_dir, eval_only=False):
-    subprocess.call(["unzip", os.path.join(data_dir,'metadata_eval.zip'), "-d", data_dir])
-    subprocess.call(["unzip", os.path.join(data_dir,'foa_eval.zip'), "-d", data_dir])
+    subprocess.call(["unzip", os.path.join(data_dir, 'zipped','metadata_eval.zip'), "-d", data_dir])
+    subprocess.call(["unzip", os.path.join(data_dir, 'zipped', 'foa_eval.zip'), "-d", data_dir])
+    subprocess.call(f"cp -R {data_dir}/proj/asignal/DCASE2019/dataset/foa_eval -d {data_dir}/foa_eval".split(" "))
+    # subprocess.call(f"rm -rf {data_dir}/proj".split(" "))
+    shutil.rmtree(f"{data_dir}/proj")
+
     if not eval_only:
-        subprocess.call(["unzip", os.path.join(data_dir,'metadata_dev.zip'), "-d", data_dir])
-        subprocess.call(f"zip -s 0 {os.path.join(data_dir,'foa_dev.zip')} --out {os.path.join(data_dir,'unsplit_foa_dev.zip')}".split(" "))
-        subprocess.call(f"unzip {os.path.join(data_dir, 'unsplit_foa_dev.zip')} -d {data_dir}".split(" "))
-        subprocess.call(f"cp -R {data_dir}/proj/asignal/DCASE2019/dataset/foa_eval -d {data_dir}/foa_eval".split(" "))
-        #Todo remove {data_dir}/proj
+        subprocess.call(["unzip", os.path.join(data_dir,'zipped', 'metadata_dev.zip'), "-d", data_dir])
+        subprocess.call(f"zip -s 0 {os.path.join(data_dir,'zipped','foa_dev.zip')} --out {os.path.join(data_dir,'unsplit_foa_dev.zip')}".split(" "))
+        subprocess.call(f"unzip {os.path.join(data_dir,'zipped', 'unsplit_foa_dev.zip')} -d {data_dir}".split(" "))
 
 
 class LogMelExtractor(object):
@@ -175,7 +179,7 @@ def preprocess_data(audio_dir, labels_data_dir, output_dir, output_mean_std_file
 
     all_features = []
 
-    for audio_fname in tqdm(os.listdir(audio_dir)[:5]):
+    for audio_fname in tqdm(os.listdir(audio_dir)):
         bare_name = os.path.splitext(audio_fname)[0]
 
         audio_path = os.path.join(audio_dir, audio_fname)
@@ -349,37 +353,33 @@ class DataGenerator(object):
 
             feature = self.transform(feature)
 
-            batch_data_dict = {
-                'name': name,
-                'feature': feature[:, None, :, :],  # (channels_num, batch_size=1, frames_num, mel_bins)
-                'event': event_matrix[None, :, :],  # (batch_size=1, frames_num, mel_bins)
-            }
+            features = feature[:, None, :, :],  # (channels_num, batch_size=1, frames_num, mel_bins)
+            event_matrix = event_matrix[None, :, :],  # (batch_size=1, frames_num, mel_bins)
             '''The None above indicates using an entire audio recording as 
             input and batch_size=1 in inference'''
 
-            yield batch_data_dict
+            yield features, event_matrix, name
 
     def transform(self, x):
         return (x - self.mean) / self.std
 
 def get_batch_generator(data_dir, batch_size, train_or_eval='eval'):
     ambisonic_2019_data_dir = f"{data_dir}/Tau_spatial_sound_events_2019"
-    # audio_dir = f"{ambisonic_2019_data_dir}/raw/foa_{train_or_eval}"
-    # meda_data_dir = f"{ambisonic_2019_data_dir}/raw/metadata_{train_or_eval}"
-    audio_dir = f"{ambisonic_2019_data_dir}/foa_{train_or_eval}"
-    meda_data_dir = f"{ambisonic_2019_data_dir}/metadata_{train_or_eval}"
+    zipped_data_dir = os.path.join(ambisonic_2019_data_dir, 'zipped')
+    extracted_data_dir= os.path.join(ambisonic_2019_data_dir, 'raw')
+    processed_data_dir= os.path.join(ambisonic_2019_data_dir, 'processed')
+    audio_dir = f"{extracted_data_dir}/foa_{train_or_eval}"
+    meda_data_dir = f"{extracted_data_dir}/metadata_{train_or_eval}"
 
     if not os.path.exists(audio_dir):
         print("Downloading raw data")
-        download_foa_data(ambisonic_2019_data_dir, eval_only=train_or_eval == 'eval')
-        extract_foa_data(ambisonic_2019_data_dir, eval_only=train_or_eval == 'eval')
+        download_foa_data(zipped_data_dir, eval_only=train_or_eval == 'eval')
+        extract_foa_data(extracted_data_dir, eval_only=train_or_eval == 'eval')
     else:
         print("Using existing raw data")
 
-    # features_and_labels_dir = f"{ambisonic_2019_data_dir}/processed/features_and_labels_{train_or_eval}"
-    # features_mean_std_file = f"{ambisonic_2019_data_dir}/processed/mel_features_mean_std_{train_or_eval}.pkl"
-    features_and_labels_dir = f"{ambisonic_2019_data_dir}/features_and_labels_{train_or_eval}"
-    features_mean_std_file = f"{ambisonic_2019_data_dir}/mel_features_mean_std_{train_or_eval}.pkl"
+    features_and_labels_dir = f"{processed_data_dir}/features_and_labels_{train_or_eval}"
+    features_mean_std_file = f"{processed_data_dir}/mel_features_mean_std_{train_or_eval}.pkl"
     if not os.path.exists(features_and_labels_dir):
         print("preprocessing raw data")
         preprocess_data(audio_dir, meda_data_dir, output_dir=features_and_labels_dir, output_mean_std_file=features_mean_std_file)
