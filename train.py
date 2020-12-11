@@ -37,7 +37,7 @@ def eval(model, data_generator, num_samples, outputs_dir, iteration, device):
 
         axs[0].set_title('Log mel spectrogram', color='r')
         axs[1].set_title('Reference sound events', color='r')
-        axs[2].set_title(f"Predicted sound events (loss: {loss})", color='b')
+        axs[2].set_title(f"Predicted sound events (loss: {loss:.2f})", color='b')
 
         for i in range(2):
             axs[i].set_xticks([0, frames_num])
@@ -75,6 +75,8 @@ def train(model, data_generator, num_steps, outputs_dir, device):
         optimizer.step()
 
         iterations+=1
+        eval(model, data_generator, 10, outputs_dir=os.path.join(outputs_dir, 'images'), iteration=iterations,
+             device=device)
 
         if iterations % 100 == 0:
             for param_group in optimizer.param_groups:
@@ -101,7 +103,6 @@ if __name__ == '__main__':
     # Train
     parser.add_argument('--dataset_dir', type=str, default='../data', help='Directory of dataset.')
     parser.add_argument('--outputs_root', type=str, default='outputs', help='Directory of your workspace.')
-    parser.add_argument('--audio_type', default='foa', type=str, choices=['foa', 'mic'])
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--device', default='cuda:0', type=str)
 
@@ -114,4 +115,3 @@ if __name__ == '__main__':
     data_generator = get_batch_generator(args.dataset_dir, args.batch_size, train_or_eval='eval')
 
     train(model, data_generator, num_steps=5000, outputs_dir=args.outputs_root, device=device)
-    # eval()

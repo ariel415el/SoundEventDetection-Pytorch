@@ -8,7 +8,6 @@ import pickle
 import subprocess
 import shutil
 import torch
-from torch.utils.data import Dataset
 from torchvision.datasets.utils import download_url
 import config as cfg
 
@@ -153,6 +152,7 @@ def read_multichannel_audio(audio_path, target_fs=None):
 
     return multichannel_audio, target_fs
 
+
 def calculate_scalar_of_tensor(x):
     if x.ndim == 2:
         axis = 0
@@ -200,16 +200,6 @@ def preprocess_data(audio_dir, labels_data_dir, output_dir, output_mean_std_file
     with open(output_mean_std_file, 'wb') as f:
         pickle.dump({'mean': mean, 'std': std}, f)
 
-# class SED_dataset(Dataset):
-#     def __init__(self, features_and_labels_dir):
-#         self.data_paths = os.listdir(features_and_labels_dir)
-#
-#     def __len__(self):
-#         return len(self.data_paths)
-#
-#     def __getitem__(self, idx):
-#         with open(self.data_paths[idx], 'rb') as f:
-#             return pickle.load(f)
 
 def create_event_matrix(frames_num, classes, start_times, end_times):
     # Researve space data
@@ -362,6 +352,7 @@ class DataGenerator(object):
     def transform(self, x):
         return (x - self.mean) / self.std
 
+
 def get_batch_generator(data_dir, batch_size, train_or_eval='eval'):
     ambisonic_2019_data_dir = f"{data_dir}/Tau_spatial_sound_events_2019"
     zipped_data_dir = os.path.join(ambisonic_2019_data_dir, 'zipped')
@@ -389,4 +380,3 @@ def get_batch_generator(data_dir, batch_size, train_or_eval='eval'):
     else:
         print("Using existing mel features")
     return DataGenerator(features_and_labels_dir, features_mean_std_file, batch_size)
-
