@@ -1,10 +1,14 @@
 import numpy as np
 import os
 import pickle
+
+import pandas as pd
 import torch
+from tqdm import tqdm
+
 import config as cfg
 from dataset.download_tau_sed_2019 import download_foa_data, extract_foa_data
-from dataset.preprocess import preprocess_data
+from dataset.preprocess import preprocess_data, LogMelExtractor, read_multichannel_audio, calculate_scalar_of_tensor
 
 
 def create_event_matrix(frames_num, classes, start_times, end_times):
@@ -159,7 +163,44 @@ class DataGenerator(object):
         return (x - self.mean) / self.std
 
 
-def get_Tau_sed_generator(data_dir, batch_size, train_or_eval='eval'):
+def get_film_clap_paths_and_labels(data_root):
+    result = []
+    for film_name in os.listdir(data_root):
+        if film_name == "Meron":
+            continue
+        dirpath = os.path.join(data_root, film_name)
+        csv_files = [os.path.join(dirpath, x) for x in os.listdir(dirpath) if x.endswith('.csv')]
+        assert(len(csv_files) == 1)
+        df = pd.read_csv(csv_files[0], sep=',')
+        for i, row in df.iterrows():
+            soundfile_path = os.path.join(dirpath, row['Clip Name'])
+            if os.path.exists(soundfile_path):
+                result += [(soundfile_path,
+                            row['Time of clap in associated audio file'] - 0.2,
+                            row['Time of clap in associated audio file'] + 0.2
+                            )]
+
+    return result
+
+
+def get_tau_sed_paths_and_labels(audio_dir, labels_data_dir):
+    results = []
+    for audio_fname in tqdm(os.listdir(audio_dir)):
+        bare_name = os.path.splitext(audio_fname)[0]
+
+        audio_path = os.path.join(audio_dir, audio_fname)
+
+        df = pd.read_csv(os.path.join(labels_data_dir, bare_name + ".csv"), sep=',')
+        relevant_classes = [i for i in range(len(df['sound_event_recording'].values))
+                            if df['sound_event_recording'].values[i] in cfg.tau_sed_labels]
+
+        start_times, end_times = df['start_time'].values[relevant_classes], df['end_time'].values[relevant_classes]
+        results += [(audio_path, start_times, end_times)]
+
+    return results
+
+
+def get_tau_sed_generator(data_dir, batch_size, train_or_eval='eval'):
     ambisonic_2019_data_dir = f"{data_dir}/Tau_sound_events_2019"
     zipped_data_dir = os.path.join(ambisonic_2019_data_dir, 'zipped')
     extracted_data_dir= os.path.join(ambisonic_2019_data_dir, 'raw')
@@ -182,7 +223,22 @@ def get_Tau_sed_generator(data_dir, batch_size, train_or_eval='eval'):
     features_mean_std_file = f"{processed_data_dir}/mel_features_mean_std_{train_or_eval}.pkl"
     if not os.path.exists(features_and_labels_dir):
         print("preprocessing raw data")
-        preprocess_data(audio_dir, meda_data_dir, output_dir=features_and_labels_dir, output_mean_std_file=features_mean_std_file)
+        audio_paths_and_labels = get_tau_sed_paths_and_labels(audio_dir, meda_data_dir)
+        preprocess_data(audio_paths_and_labels, output_dir=features_and_labels_dir, output_mean_std_file=features_mean_std_file)
+    else:
+        print("Using existing mel features")
+    return DataGenerator(features_and_labels_dir, features_mean_std_file, batch_size)
+
+
+def get_film_clap_generator(data_dir, batch_size):
+    if not os.path.exists(data_dir):
+        raise Exception("You should get you own dataset...")
+
+    features_and_labels_dir = f"{data_dir}/features_and_labels"
+    features_mean_std_file = f"{data_dir}/mel_features_mean_std.pkl"
+    if not os.path.exists(features_and_labels_dir):
+        audio_paths_and_labels = get_film_clap_paths_and_labels(data_dir)
+        preprocess_data(audio_paths_and_labels, output_dir=features_and_labels_dir, output_mean_std_file=features_mean_std_file)
     else:
         print("Using existing mel features")
     return DataGenerator(features_and_labels_dir, features_mean_std_file, batch_size)

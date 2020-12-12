@@ -7,7 +7,7 @@ from torch import optim
 from utils import binary_crossentropy
 from models import *
 import config as cfg
-from dataset.data_generator import get_Tau_sed_generator
+from dataset.data_generator import get_tau_sed_generator
 import matplotlib.pyplot as plt
 
 
@@ -110,6 +110,6 @@ if __name__ == '__main__':
 
     model = Cnn_9layers_AvgPooling(cfg.classes_num).to(device)
 
-    data_generator = get_Tau_sed_generator(args.dataset_dir, args.batch_size, train_or_eval='eval')
+    data_generator = get_tau_sed_generator(args.dataset_dir, args.batch_size, train_or_eval='eval')
 
     train(model, data_generator, num_steps=5000, outputs_dir=args.outputs_root, device=device)

@@ -3,7 +3,6 @@ import pickle
 
 import librosa
 import numpy as np
-import pandas as pd
 import soundfile
 from tqdm import tqdm
 
@@ -121,12 +120,8 @@ def calculate_scalar_of_tensor(x):
 
     return mean, std
 
-def read_tau_sed_metadata(metadata_file):
-    df = pd.read_csv(metadata_file, sep=',')
-    relevant_classes = [i for i in range(len(df['sound_event_recording'].values)) if df['sound_event_recording'].values[i] in cfg.tau_sed_labels]
-    return df['sound_event_recording'].values[relevant_classes], df['start_time'].values[relevant_classes], df['end_time'].values[relevant_classes]
 
-def preprocess_data(audio_dir, labels_data_dir, output_dir, output_mean_std_file):
+def preprocess_data(audio_path_and_labels, output_dir, output_mean_std_file):
     os.makedirs(output_dir, exist_ok=True)
 
     feature_extractor = LogMelExtractor(
@@ -139,20 +134,17 @@ def preprocess_data(audio_dir, labels_data_dir, output_dir, output_mean_std_file
 
     all_features = []
 
-    for audio_fname in tqdm(os.listdir(audio_dir)[:5]):
-        bare_name = os.path.splitext(audio_fname)[0]
+    for (audio_path, start_times, end_times) in tqdm(audio_path_and_labels):
+        bare_name = os.path.basename(os.path.splitext(audio_path)[0])
 
-        audio_path = os.path.join(audio_dir, audio_fname)
         multichannel_audio, _ = read_multichannel_audio(audio_path=audio_path, target_fs=cfg.sample_rate)
         feature = feature_extractor.transform_multichannel(multichannel_audio)
         all_features.append(feature)
 
-        labels_path = os.path.join(labels_data_dir, bare_name + ".csv")
-        classes_labels, start_times, end_times = read_tau_sed_metadata(labels_path)
-        if len(classes_labels) > 0:
+        if len(start_times) > 0:
             output_path = os.path.join(output_dir, bare_name + "_mel_features_and_labels.pkl")
             with open(output_path, 'wb') as f:
-                pickle.dump({'features': feature, 'classes': classes_labels, 'start_times': start_times, 'end_times': end_times},
+                pickle.dump({'features': feature, 'start_times': start_times, 'end_times': end_times},
                              f, protocol=pickle.HIGHEST_PROTOCOL)
 
     all_features = np.concatenate(all_features, axis=1)
