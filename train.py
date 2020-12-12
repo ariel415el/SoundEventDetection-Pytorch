@@ -80,7 +80,7 @@ def train(model, data_generator, num_steps, outputs_dir, device):
             for param_group in optimizer.param_groups:
                 param_group['lr'] *= 0.95
 
-        if iterations % 100 == 0:
+        if iterations % 1000 == 0:
             print(f"step: {iterations}, loss: {loss.item()}")
 
             eval(model, data_generator, 10, outputs_dir=os.path.join(outputs_dir, 'images'), iteration=iterations, device=device)
