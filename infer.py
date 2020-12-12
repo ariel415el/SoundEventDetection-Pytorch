@@ -1,7 +1,7 @@
 import argparse
 from models import *
 import config as cfg
-from data import LogMelExtractor, read_multichannel_audio
+from dataset.preprocess import LogMelExtractor, read_multichannel_audio
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -57,7 +57,7 @@ if __name__ == '__main__':
         axs[i].set_xticklabels(['0', '{:.1f} s'.format(length_in_second)])
         axs[i].xaxis.set_ticks_position('bottom')
         axs[i].set_yticks(np.arange(cfg.classes_num))
-        axs[i].set_yticklabels(cfg.labels)
+        axs[i].set_yticklabels(cfg.tau_sed_labels)
         axs[i].yaxis.grid(color='w', linestyle='solid', linewidth=0.2)
 
     axs[0].set_ylabel('Mel bins')

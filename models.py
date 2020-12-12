@@ -1,9 +1,7 @@
-import math
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from config import audio_channels
 
 def interpolate(x, ratio):
     '''Interpolate the prediction to have the same time_steps as the target.
@@ -41,7 +39,7 @@ class Cnn_2layers_AvgPooling(nn.Module):
     def __init__(self, classes_num):
         super(Cnn_2layers_AvgPooling, self).__init__()
 
-        self.conv1 = nn.Conv2d(in_channels=4, out_channels=64,
+        self.conv1 = nn.Conv2d(in_channels=audio_channels, out_channels=64,
                                kernel_size=(5, 5), stride=(1, 1),
                                padding=(2, 2), bias=False)
 
@@ -139,7 +137,7 @@ class Cnn_9layers_AvgPooling(nn.Module):
         
         super(Cnn_9layers_AvgPooling, self).__init__()
 
-        self.conv_block1 = ConvBlock(in_channels=4, out_channels=64)
+        self.conv_block1 = ConvBlock(in_channels=audio_channels, out_channels=64)
         self.conv_block2 = ConvBlock(in_channels=64, out_channels=128)
         self.conv_block3 = ConvBlock(in_channels=128, out_channels=256)
         self.conv_block4 = ConvBlock(in_channels=256, out_channels=512)

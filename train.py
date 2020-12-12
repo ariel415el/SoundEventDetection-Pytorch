@@ -7,7 +7,7 @@ from torch import optim
 from utils import binary_crossentropy
 from models import *
 import config as cfg
-from data import get_batch_generator
+from dataset.data_generator import get_Tau_sed_generator
 import matplotlib.pyplot as plt
 
 
@@ -44,7 +44,7 @@ def eval(model, data_generator, num_samples, outputs_dir, iteration, device):
             axs[i].set_xticklabels(['0', '{:.1f} s'.format(length_in_second)])
             axs[i].xaxis.set_ticks_position('bottom')
             axs[i].set_yticks(np.arange(cfg.classes_num))
-            axs[i].set_yticklabels(cfg.labels)
+            axs[i].set_yticklabels(cfg.tau_sed_labels)
             axs[i].yaxis.grid(color='w', linestyle='solid', linewidth=0.2)
 
         axs[0].set_ylabel('Mel bins')
@@ -75,14 +75,12 @@ def train(model, data_generator, num_steps, outputs_dir, device):
         optimizer.step()
 
         iterations+=1
-        eval(model, data_generator, 10, outputs_dir=os.path.join(outputs_dir, 'images'), iteration=iterations,
-             device=device)
 
         if iterations % 100 == 0:
             for param_group in optimizer.param_groups:
                 param_group['lr'] *= 0.95
 
-        if iterations % 1000 == 0:
+        if iterations % 100 == 0:
             print(f"step: {iterations}, loss: {loss.item()}")
 
             eval(model, data_generator, 10, outputs_dir=os.path.join(outputs_dir, 'images'), iteration=iterations, device=device)
@@ -112,6 +110,6 @@ if __name__ == '__main__':
 
     model = Cnn_9layers_AvgPooling(cfg.classes_num).to(device)
 
-    data_generator = get_batch_generator(args.dataset_dir, args.batch_size, train_or_eval='eval')
+    data_generator = get_Tau_sed_generator(args.dataset_dir, args.batch_size, train_or_eval='eval')
 
     train(model, data_generator, num_steps=5000, outputs_dir=args.outputs_root, device=device)
