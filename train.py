@@ -7,12 +7,36 @@ from torch import optim
 from utils import binary_crossentropy
 from models import *
 import config as cfg
-from dataset.data_generator import get_tau_sed_generator
+from dataset.data_generator import get_tau_sed_generator, get_film_clap_generator
 import matplotlib.pyplot as plt
+
+
+class loss_tracker:
+    def __init__(self, plot_path):
+        self.train_buffer = []
+        self.val_buffer = []
+        self.train_avgs = []
+        self.val_avgs = []
+        self.plot_path = plot_path
+
+    def plot(self):
+        self.train_avgs += [np.mean(self.train_buffer)]
+        self.val_buffer += [np.mean(self.val_buffer)]
+        self.train_buffer = []
+        self.val_buffer = []
+
+        plt.plot(np.arange(len(self.train_avgs)), self.train_avgs, label='train', color='blue')
+        plt.plot(np.arange(len(self.val_buffer)), self.val_buffer, label='validation', color='orange')
+        plt.xlabel("train step")
+        plt.ylabel("loss")
+        plt.legend()
+        plt.savefig(self.plot_path)
+        plt.clf()
 
 
 def eval(model, data_generator, num_samples, outputs_dir, iteration, device):
     os.makedirs(outputs_dir, exist_ok=True)
+    losses = []
     for idx, (mel_features, event_matrix, file_name) in enumerate(data_generator.generate_validate('validate', max_validate_num=num_samples)):
         model.eval()
         with torch.no_grad():
@@ -20,6 +44,7 @@ def eval(model, data_generator, num_samples, outputs_dir, iteration, device):
             output_event = model(mel_features.to(device).float())
 
         loss = binary_crossentropy(output_event.cpu().float(), event_matrix.float())
+        losses.append(loss.item())
         output_event = output_event.cpu().numpy()
         event_matrix = event_matrix.cpu().numpy()
 
@@ -55,13 +80,18 @@ def eval(model, data_generator, num_samples, outputs_dir, iteration, device):
         plt.savefig(os.path.join(outputs_dir, f"Iter-{iteration}_img-{idx}.png"))
         plt.close(fig)
 
+        return losses
+
+
 def train(model, data_generator, num_steps, outputs_dir, device):
+    plotter = loss_tracker(os.path.join(outputs_dir, "training_plot.png"))
     # Optimizer
     optimizer = optim.Adam(model.parameters(), lr=1e-3, betas=(0.9, 0.999),
                            eps=1e-08, weight_decay=0., amsgrad=True)
     os.makedirs(os.path.join(outputs_dir, 'checkpoints'), exist_ok=True)
     iterations = 0
     print("Training")
+    train_losses = []
     for (mel_features, event_labels) in tqdm(data_generator.generate_train()):
         batch_features = mel_features.to(device).float()
         event_labels = event_labels.to(device).float()
@@ -69,6 +99,7 @@ def train(model, data_generator, num_steps, outputs_dir, device):
         model.train()
         batch_outputs = model(batch_features)
         loss = binary_crossentropy(batch_outputs, event_labels)
+        plotter.train_buffer.append(loss.item())
         # Backward
         optimizer.zero_grad()
         loss.backward()
@@ -80,10 +111,12 @@ def train(model, data_generator, num_steps, outputs_dir, device):
             for param_group in optimizer.param_groups:
                 param_group['lr'] *= 0.95
 
-        if iterations % 1000 == 0:
-            print(f"step: {iterations}, loss: {loss.item()}")
+        if iterations % 1 == 0:
+            print(f"step: {iterations}, loss: {loss.item():.2f}")
 
-            eval(model, data_generator, 10, outputs_dir=os.path.join(outputs_dir, 'images'), iteration=iterations, device=device)
+            val_losses = eval(model, data_generator, 10, outputs_dir=os.path.join(outputs_dir, 'images'), iteration=iterations, device=device)
+            plotter.val_buffer += val_losses
+            plotter.plot()
 
             checkpoint = {
                 'iterations': iterations,
@@ -110,6 +143,7 @@ if __name__ == '__main__':
 
     model = Cnn_9layers_AvgPooling(cfg.classes_num).to(device)
 
-    data_generator = get_tau_sed_generator(args.dataset_dir, args.batch_size, train_or_eval='eval')
+    # data_generator = get_tau_sed_generator(args.dataset_dir, args.batch_size, train_or_eval='eval')
+    data_generator = get_film_clap_generator("../data/Film_take_clap", args.batch_size)
 
     train(model, data_generator, num_steps=5000, outputs_dir=args.outputs_root, device=device)

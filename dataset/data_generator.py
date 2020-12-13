@@ -8,19 +8,18 @@ from tqdm import tqdm
 
 import config as cfg
 from dataset.download_tau_sed_2019 import download_foa_data, extract_foa_data
-from dataset.preprocess import preprocess_data, LogMelExtractor, read_multichannel_audio, calculate_scalar_of_tensor
+from dataset.preprocess import preprocess_data
 
 
-def create_event_matrix(frames_num, classes, start_times, end_times):
+def create_event_matrix(frames_num, start_times, end_times):
     # Researve space data
-    event_matrix = np.zeros((frames_num, cfg.classes_num))
+    event_matrix = np.zeros((frames_num, 1))
 
-    for n in range(len(classes)):
-        class_id = cfg.lb_to_idx[classes[n]]
+    for n in range(len(start_times)):
         start_frame = int(round(start_times[n] * cfg.frames_per_second))
         end_frame = int(round(end_times[n] * cfg.frames_per_second)) + 1
 
-        event_matrix[start_frame: end_frame, class_id] = 1
+        event_matrix[start_frame: end_frame] = 1
 
     return event_matrix
 
@@ -54,7 +53,7 @@ class DataGenerator(object):
         for feature_name in self.train_feature_names:
             data = pickle.load(open(os.path.join(features_and_labels_dir, feature_name), 'rb'))
             feature = data['features']
-            event_matrix = create_event_matrix(feature.shape[1], data['classes'], data['start_times'], data['end_times'])
+            event_matrix = create_event_matrix(feature.shape[1], data['start_times'], data['end_times'])
 
             frames_num = feature.shape[1]
             '''Number of frames of the log mel spectrogram of an audio 
@@ -79,7 +78,7 @@ class DataGenerator(object):
         for feature_name in self.validate_feature_names:
             data = pickle.load(open(os.path.join(features_and_labels_dir, feature_name), 'rb'))
             feature = data['features']
-            event_matrix = create_event_matrix(feature.shape[1], data['classes'], data['start_times'], data['end_times'])
+            event_matrix = create_event_matrix(feature.shape[1], data['start_times'], data['end_times'])
 
             self.validate_features_list.append(feature)
             self.validate_event_matrix_list.append(event_matrix)
@@ -166,18 +165,17 @@ class DataGenerator(object):
 def get_film_clap_paths_and_labels(data_root):
     result = []
     for film_name in os.listdir(data_root):
-        if film_name == "Meron":
-            continue
         dirpath = os.path.join(data_root, film_name)
         csv_files = [os.path.join(dirpath, x) for x in os.listdir(dirpath) if x.endswith('.csv')]
-        assert(len(csv_files) == 1)
+        if film_name == "Meron" or len(csv_files) != 1:
+            continue
         df = pd.read_csv(csv_files[0], sep=',')
         for i, row in df.iterrows():
-            soundfile_path = os.path.join(dirpath, row['Clip Name'])
+            soundfile_path = os.path.join(dirpath, row[0])
             if os.path.exists(soundfile_path):
                 result += [(soundfile_path,
-                            row['Time of clap in associated audio file'] - 0.2,
-                            row['Time of clap in associated audio file'] + 0.2
+                            [row[1] - 0.2],
+                            [row[1] + 0.2]
                             )]
 
     return result
@@ -233,7 +231,7 @@ def get_tau_sed_generator(data_dir, batch_size, train_or_eval='eval'):
 def get_film_clap_generator(data_dir, batch_size):
     if not os.path.exists(data_dir):
         raise Exception("You should get you own dataset...")
-
+    print("preprocessing raw data")
     features_and_labels_dir = f"{data_dir}/features_and_labels"
     features_mean_std_file = f"{data_dir}/mel_features_mean_std.pkl"
     if not os.path.exists(features_and_labels_dir):
