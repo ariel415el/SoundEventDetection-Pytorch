@@ -3,3 +3,4 @@ __pycache__/
 .idea/
 /outputs/
 /inference_outputs/
+/data/

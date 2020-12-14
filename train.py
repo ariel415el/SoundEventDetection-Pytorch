@@ -21,12 +21,12 @@ class loss_tracker:
 
     def plot(self):
         self.train_avgs += [np.mean(self.train_buffer)]
-        self.val_buffer += [np.mean(self.val_buffer)]
+        self.val_avgs += [np.mean(self.val_buffer)]
         self.train_buffer = []
         self.val_buffer = []
 
         plt.plot(np.arange(len(self.train_avgs)), self.train_avgs, label='train', color='blue')
-        plt.plot(np.arange(len(self.val_buffer)), self.val_buffer, label='validation', color='orange')
+        plt.plot(np.arange(len(self.val_avgs)), self.val_avgs, label='validation', color='orange')
         plt.xlabel("train step")
         plt.ylabel("loss")
         plt.legend()
@@ -76,7 +76,7 @@ def eval(model, data_generator, num_samples, outputs_dir, iteration, device):
         axs[0].set_yticks([0, cfg.mel_bins])
         axs[0].set_yticklabels([0, cfg.mel_bins])
 
-        fig.tight_layout()
+        # fig.tight_layout()
         plt.savefig(os.path.join(outputs_dir, f"Iter-{iteration}_img-{idx}.png"))
         plt.close(fig)
 
@@ -111,7 +111,7 @@ def train(model, data_generator, num_steps, outputs_dir, device):
             for param_group in optimizer.param_groups:
                 param_group['lr'] *= 0.95
 
-        if iterations % 1 == 0:
+        if iterations % 1000 == 0:
             print(f"step: {iterations}, loss: {loss.item():.2f}")
 
             val_losses = eval(model, data_generator, 10, outputs_dir=os.path.join(outputs_dir, 'images'), iteration=iterations, device=device)
@@ -132,7 +132,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Example of parser. ')
 
     # Train
-    parser.add_argument('--dataset_dir', type=str, default='../data', help='Directory of dataset.')
+    parser.add_argument('--dataset_dir', type=str, default='data', help='Directory of dataset.')
     parser.add_argument('--outputs_root', type=str, default='outputs', help='Directory of your workspace.')
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--device', default='cuda:0', type=str)
@@ -143,7 +143,7 @@ if __name__ == '__main__':
 
     model = Cnn_9layers_AvgPooling(cfg.classes_num).to(device)
 
-    # data_generator = get_tau_sed_generator(args.dataset_dir, args.batch_size, train_or_eval='eval')
-    data_generator = get_film_clap_generator("../data/Film_take_clap", args.batch_size)
+    data_generator = get_tau_sed_generator(args.dataset_dir, args.batch_size, train_or_eval='dev')
+    # data_generator = get_film_clap_generator("../data/Film_take_clap", args.batch_size)
 
     train(model, data_generator, num_steps=5000, outputs_dir=args.outputs_root, device=device)

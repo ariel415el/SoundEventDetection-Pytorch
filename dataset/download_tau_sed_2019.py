@@ -49,5 +49,5 @@ def extract_foa_data(data_dir, output_dir, eval_only=False):
 
     if not eval_only:
         subprocess.call(["unzip", os.path.join(data_dir, 'metadata_dev.zip'), "-d", output_dir])
-        subprocess.call(f"zip -s 0 {os.path.join(data_dir,'foa_dev.zip')} --out {os.path.join(output_dir,'unsplit_foa_dev.zip')}".split(" "))
+        subprocess.call(f"zip -s 0 {os.path.join(data_dir,'foa_dev.zip')} --out {os.path.join(data_dir,'unsplit_foa_dev.zip')}".split(" "))
         subprocess.call(f"unzip {os.path.join(data_dir, 'unsplit_foa_dev.zip')} -d {output_dir}".split(" "))

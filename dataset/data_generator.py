@@ -1,15 +1,14 @@
 import numpy as np
 import os
 import pickle
+from random import shuffle
 
 import pandas as pd
 import torch
-from tqdm import tqdm
 
 import config as cfg
 from dataset.download_tau_sed_2019 import download_foa_data, extract_foa_data
 from dataset.preprocess import preprocess_data
-
 
 def create_event_matrix(frames_num, start_times, end_times):
     # Researve space data
@@ -25,7 +24,7 @@ def create_event_matrix(frames_num, start_times, end_times):
 
 
 class DataGenerator(object):
-    def __init__(self, features_and_labels_dir, mean_std_file, batch_size, seed=1234):
+    def __init__(self, features_and_labels_dir, mean_std_file, batch_size, val_perc=0.1, seed=1234):
         d = pickle.load(open(mean_std_file, 'rb'))
         self.mean = d['mean']
         self.std = d['std']
@@ -37,12 +36,14 @@ class DataGenerator(object):
         self.lb_to_idx = cfg.lb_to_idx
         self.time_steps = cfg.time_steps
 
-        feature_names = sorted(os.listdir(features_and_labels_dir))
+        feature_names = os.listdir(features_and_labels_dir)
+        shuffle(feature_names)
 
-        val_split = int(len(feature_names)*0.9)
-        self.train_feature_names = feature_names[:val_split]
+        val_split = int(len(feature_names)*val_perc)
+        print(f"Data generator initiated with {len(feature_names) - val_split} train and {val_split} val images")
+        self.train_feature_names = feature_names[val_split:]
 
-        self.validate_feature_names = feature_names[val_split:]
+        self.validate_feature_names = feature_names[:val_split]
 
         self.train_features_list = []
         self.train_event_matrix_list = []
@@ -183,7 +184,7 @@ def get_film_clap_paths_and_labels(data_root):
 
 def get_tau_sed_paths_and_labels(audio_dir, labels_data_dir):
     results = []
-    for audio_fname in tqdm(os.listdir(audio_dir)):
+    for audio_fname in os.listdir(audio_dir):
         bare_name = os.path.splitext(audio_fname)[0]
 
         audio_path = os.path.join(audio_dir, audio_fname)
