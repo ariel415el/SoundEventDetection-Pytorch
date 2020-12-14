@@ -19,7 +19,7 @@ if __name__ == '__main__':
 
     device = torch.device("cuda:0" if torch.cuda.is_available() and args.device == "cuda:0" else "cpu")
 
-    model = Cnn_9layers_AvgPooling(cfg.classes_num).to(device)
+    model = Cnn_AvgPooling(cfg.classes_num).to(device)
     checkpoint = torch.load(args.ckpt, map_location=device)
     model.load_state_dict(checkpoint['model'])
 

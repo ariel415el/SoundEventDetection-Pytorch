@@ -1,55 +1,39 @@
 import os
 import argparse
 from tqdm import tqdm
+from collections import defaultdict
 import numpy as np
 from torch import optim
 
-from utils import binary_crossentropy
+from utils import binary_crossentropy, loss_tracker, calculate_metrics
 from models import *
 import config as cfg
-from dataset.data_generator import get_tau_sed_generator, get_film_clap_generator
+from dataset.data_generator import get_film_clap_generator
 import matplotlib.pyplot as plt
 
 
-class loss_tracker:
-    def __init__(self, plot_path):
-        self.train_buffer = []
-        self.val_buffer = []
-        self.train_avgs = []
-        self.val_avgs = []
-        self.plot_path = plot_path
-
-    def plot(self):
-        self.train_avgs += [np.mean(self.train_buffer)]
-        self.val_avgs += [np.mean(self.val_buffer)]
-        self.train_buffer = []
-        self.val_buffer = []
-
-        plt.plot(np.arange(len(self.train_avgs)), self.train_avgs, label='train', color='blue')
-        plt.plot(np.arange(len(self.val_avgs)), self.val_avgs, label='validation', color='orange')
-        plt.xlabel("train step")
-        plt.ylabel("loss")
-        plt.legend()
-        plt.savefig(self.plot_path)
-        plt.clf()
-
-
-def eval(model, data_generator, num_samples, outputs_dir, iteration, device):
+def eval(model, data_generator, outputs_dir, iteration, device, limit_val_samples=32):
     os.makedirs(outputs_dir, exist_ok=True)
+    metrics = defaultdict(lambda: list())
     losses = []
-    for idx, (mel_features, event_matrix, file_name) in enumerate(data_generator.generate_validate('validate', max_validate_num=num_samples)):
+    for idx, (mel_features, target, file_name) in enumerate(data_generator.generate_validate('validate', max_validate_num=limit_val_samples)):
         model.eval()
         with torch.no_grad():
             model.eval()
-            output_event = model(mel_features.to(device).float())
+            output = model(mel_features.to(device).float())
 
-        loss = binary_crossentropy(output_event.cpu().float(), event_matrix.float())
+        loss = binary_crossentropy(output.cpu().float(), target.float())
+
+        output = output.cpu().numpy()
+        target = target.cpu().numpy()
+
+        f1, err = calculate_metrics(output, target, th=0.8)
+
         losses.append(loss.item())
-        output_event = output_event.cpu().numpy()
-        event_matrix = event_matrix.cpu().numpy()
-
+        metrics['f1'].append(f1)
+        metrics['err'].append(err)
         # Plot outputs
-        frames_num = event_matrix.shape[1]
+        frames_num = target.shape[1]
         length_in_second = frames_num / float(cfg.frames_per_second)
 
         fig, axs = plt.subplots(3, 1, figsize=(15, 10))
@@ -57,8 +41,8 @@ def eval(model, data_generator, num_samples, outputs_dir, iteration, device):
         logmel = mel_features[0][0] * data_generator.std + data_generator.mean
 
         axs[0].matshow(logmel.T, origin='lower', aspect='auto', cmap='jet')
-        axs[1].matshow(event_matrix[0].T, origin='lower', aspect='auto', cmap='jet')
-        axs[2].matshow(output_event[0].T, origin='lower', aspect='auto', cmap='jet')
+        axs[1].matshow(target[0].T, origin='lower', aspect='auto', cmap='jet')
+        axs[2].matshow(output[0].T, origin='lower', aspect='auto', cmap='jet')
 
         axs[0].set_title('Log mel spectrogram', color='r')
         axs[1].set_title('Reference sound events', color='r')
@@ -80,18 +64,17 @@ def eval(model, data_generator, num_samples, outputs_dir, iteration, device):
         plt.savefig(os.path.join(outputs_dir, f"Iter-{iteration}_img-{idx}.png"))
         plt.close(fig)
 
-        return losses
+    return losses, metrics
 
 
 def train(model, data_generator, num_steps, outputs_dir, device):
-    plotter = loss_tracker(os.path.join(outputs_dir, "training_plot.png"))
+    plotter = loss_tracker(outputs_dir)
     # Optimizer
-    optimizer = optim.Adam(model.parameters(), lr=1e-3, betas=(0.9, 0.999),
-                           eps=1e-08, weight_decay=0., amsgrad=True)
+    optimizer = optim.Adam(model.parameters(), lr=1e-3, betas=(0.9, 0.999), eps=1e-08, weight_decay=0., amsgrad=True)
     os.makedirs(os.path.join(outputs_dir, 'checkpoints'), exist_ok=True)
+
     iterations = 0
     print("Training")
-    train_losses = []
     for (mel_features, event_labels) in tqdm(data_generator.generate_train()):
         batch_features = mel_features.to(device).float()
         event_labels = event_labels.to(device).float()
@@ -99,23 +82,27 @@ def train(model, data_generator, num_steps, outputs_dir, device):
         model.train()
         batch_outputs = model(batch_features)
         loss = binary_crossentropy(batch_outputs, event_labels)
-        plotter.train_buffer.append(loss.item())
+
         # Backward
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
+        plotter.report_train_loss(loss.item())
         iterations+=1
 
         if iterations % 100 == 0:
             for param_group in optimizer.param_groups:
                 param_group['lr'] *= 0.95
 
-        if iterations % 1000 == 0:
+        if iterations % 100 == 0:
             print(f"step: {iterations}, loss: {loss.item():.2f}")
 
-            val_losses = eval(model, data_generator, 10, outputs_dir=os.path.join(outputs_dir, 'images'), iteration=iterations, device=device)
-            plotter.val_buffer += val_losses
+            losses, metrics = eval(model, data_generator, outputs_dir=os.path.join(outputs_dir, 'images'), iteration=iterations, device=device)
+
+            plotter.report_val_losses(losses)
+            plotter.report_val_metrics(metrics)
+
             plotter.plot()
 
             checkpoint = {
@@ -132,7 +119,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Example of parser. ')
 
     # Train
-    parser.add_argument('--dataset_dir', type=str, default='data', help='Directory of dataset.')
+    parser.add_argument('--dataset_dir', type=str, default='../data', help='Directory of dataset.')
     parser.add_argument('--outputs_root', type=str, default='outputs', help='Directory of your workspace.')
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--device', default='cuda:0', type=str)
@@ -141,9 +128,10 @@ if __name__ == '__main__':
 
     device = torch.device("cuda:0" if torch.cuda.is_available() and args.device == "cuda:0" else "cpu")
 
-    model = Cnn_9layers_AvgPooling(cfg.classes_num).to(device)
+    model = Cnn_AvgPooling(cfg.classes_num).to(device)
+    # model = Cnn_2layers_AvgPooling(cfg.classes_num).to(device)
 
-    data_generator = get_tau_sed_generator(args.dataset_dir, args.batch_size, train_or_eval='dev')
-    # data_generator = get_film_clap_generator("../data/Film_take_clap", args.batch_size)
+    # data_generator = get_tau_sed_generator(args.dataset_dir, args.batch_size, train_or_eval='dev')
+    data_generator = get_film_clap_generator("../data/Film_take_clap", args.batch_size)
 
     train(model, data_generator, num_steps=5000, outputs_dir=args.outputs_root, device=device)

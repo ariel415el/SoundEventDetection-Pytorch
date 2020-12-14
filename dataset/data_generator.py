@@ -10,9 +10,10 @@ import config as cfg
 from dataset.download_tau_sed_2019 import download_foa_data, extract_foa_data
 from dataset.preprocess import preprocess_data
 
+
 def create_event_matrix(frames_num, start_times, end_times):
     # Researve space data
-    event_matrix = np.zeros((frames_num, 1))
+    event_matrix = np.zeros((frames_num, cfg.classes_num))
 
     for n in range(len(start_times)):
         start_frame = int(round(start_times[n] * cfg.frames_per_second))
@@ -165,20 +166,28 @@ class DataGenerator(object):
 
 def get_film_clap_paths_and_labels(data_root):
     result = []
+    num_claps = 0
+    num_audio_files = 0
     for film_name in os.listdir(data_root):
         dirpath = os.path.join(data_root, film_name)
         csv_files = [os.path.join(dirpath, x) for x in os.listdir(dirpath) if x.endswith('.csv')]
         if film_name == "Meron" or len(csv_files) != 1:
             continue
         df = pd.read_csv(csv_files[0], sep=',')
-        for i, row in df.iterrows():
-            soundfile_path = os.path.join(dirpath, row[0])
-            if os.path.exists(soundfile_path):
-                result += [(soundfile_path,
-                            [row[1] - 0.2],
-                            [row[1] + 0.2]
-                            )]
-
+        clip_names = np.unique(df['Clip Name'])
+        done_names = set()
+        for name in clip_names:
+            if name not in done_names:
+                done_names.add(name)
+                soundfile_path = os.path.join(dirpath, name)
+                if os.path.exists(soundfile_path):
+                    relevant_df = df.loc[df['Clip Name'] == name]
+                    start_times = [row[1] - 0.25 for i, row in relevant_df.iterrows()]
+                    end_times = [row[1] + 0.25 for i, row in relevant_df.iterrows()]
+                    result += [(soundfile_path,start_times, end_times)]
+                    num_claps += len(start_times)
+                    num_audio_files += 1
+    print(f"Film clap dataset contains {num_audio_files} audio files with {num_claps} clap insidents")
     return result
 
 
