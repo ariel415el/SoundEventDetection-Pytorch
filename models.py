@@ -88,7 +88,7 @@ class Cnn_AvgPooling(nn.Module):
 
         self.conv_blocks = torch.nn.Sequential(*self.conv_blocks)
 
-        self.event_fc = nn.Linear(DEFAULT_CHANNEL_AND_POOL[-1][0], classes_num, bias=True)
+        self.event_fc = nn.Linear(model_config[-1][0], classes_num, bias=True)
 
         self.init_weights()
 
