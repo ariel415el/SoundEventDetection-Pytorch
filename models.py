@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from config import audio_channels, mel_bins
+from config import audio_channels
 
 DEFAULT_CHANNEL_AND_POOL=[(64,2), (128,2), (256,2), (512,1)]
 
@@ -76,7 +76,6 @@ class ConvBlock(nn.Module):
 
 class Cnn_AvgPooling(nn.Module):
     def __init__(self, classes_num, model_config=DEFAULT_CHANNEL_AND_POOL):
-
         super(Cnn_AvgPooling, self).__init__()
         self.num_pools = 1 if model_config[0][1] == 2 else 1
         self.conv_blocks = [ConvBlock(in_channels=audio_channels, out_channels=model_config[0][0], pool_size=model_config[0][1])]

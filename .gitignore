@@ -3,4 +3,5 @@ __pycache__/
 .idea/
 /outputs/
 /inference_outputs/
-/data/
+/processed_datasets/
+*.pth

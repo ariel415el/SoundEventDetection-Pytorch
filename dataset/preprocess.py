@@ -95,8 +95,10 @@ def read_multichannel_audio(audio_path, target_fs=None):
     (multichannel_audio, sample_rate) = soundfile.read(audio_path)
     if len(multichannel_audio.shape) == 1:
         multichannel_audio = multichannel_audio.reshape(-1, 1)
-    if multichannel_audio.shape[1] != cfg.audio_channels:
+    if multichannel_audio.shape[1] < cfg.audio_channels:
         multichannel_audio = np.repeat(multichannel_audio.mean(1).reshape(-1, 1), cfg.audio_channels, axis=1)
+    elif multichannel_audio.shape[1] > cfg.audio_channels:
+        multichannel_audio = multichannel_audio[:, :cfg.audio_channels]
 
     if target_fs is not None and sample_rate != target_fs:
 
@@ -145,7 +147,7 @@ def preprocess_data(audio_path_and_labels, output_dir, output_mean_std_file):
             output_path = os.path.join(output_dir, bare_name + "_mel_features_and_labels.pkl")
             with open(output_path, 'wb') as f:
                 pickle.dump({'features': feature, 'start_times': start_times, 'end_times': end_times},
-                             f, protocol=pickle.HIGHEST_PROTOCOL)
+                            f)
 
     all_features = np.concatenate(all_features, axis=1)
     mean, std = calculate_scalar_of_tensor(all_features)

@@ -241,11 +241,11 @@ def get_tau_sed_generator(data_dir, batch_size, train_or_eval='eval'):
 def get_film_clap_generator(data_dir, batch_size):
     if not os.path.exists(data_dir):
         raise Exception("You should get you own dataset...")
-    print("preprocessing raw data")
-    features_and_labels_dir = f"{data_dir}/features_and_labels"
-    features_mean_std_file = f"{data_dir}/mel_features_mean_std.pkl"
+    features_and_labels_dir = f"{data_dir}/processed/features_and_labels"
+    features_mean_std_file = f"{data_dir}/processed/mel_features_mean_std.pkl"
     if not os.path.exists(features_and_labels_dir):
-        audio_paths_and_labels = get_film_clap_paths_and_labels(data_dir)
+        print("preprocessing raw data")
+        audio_paths_and_labels = get_film_clap_paths_and_labels(os.path.join(data_dir, 'raw'))
         preprocess_data(audio_paths_and_labels, output_dir=features_and_labels_dir, output_mean_std_file=features_mean_std_file)
     else:
         print("Using existing mel features")

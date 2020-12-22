@@ -1,7 +1,6 @@
 import os
 import argparse
 from tqdm import tqdm
-from collections import defaultdict
 from torch import optim
 import numpy as np
 from utils import binary_crossentropy, loss_tracker, calculate_metrics, plot_debug_image
@@ -103,11 +102,12 @@ if __name__ == '__main__':
 
     device = torch.device("cuda:0" if torch.cuda.is_available() and args.device == "cuda:0" else "cpu")
 
-    model = Cnn_AvgPooling(cfg.classes_num).to(device)
+    model = Cnn_AvgPooling(cfg.classes_num, model_config=[(64,2), (128,2)]).to(device)
     if args.ckpt != '':
         checkpoint = torch.load(args.ckpt, map_location=device)
         model.load_state_dict(checkpoint['model'])
     # data_generator = get_tau_sed_generator(args.dataset_dir, args.batch_size, train_or_eval='dev')
+    # data_generator = get_film_clap_generator("../processed_datasets/Film_take_clap_processed", args.batch_size)
     data_generator = get_film_clap_generator("../data/Film_take_clap", args.batch_size)
 
     train(model, data_generator, num_steps=args.num_train_steps, outputs_dir=args.outputs_root, device=device, log_freq=args.log_freq)
