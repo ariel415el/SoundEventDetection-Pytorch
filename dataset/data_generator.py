@@ -208,7 +208,7 @@ def get_tau_sed_paths_and_labels(audio_dir, labels_data_dir):
     return results
 
 
-def get_tau_sed_generator(data_dir, batch_size, train_or_eval='eval'):
+def get_tau_sed_generator(data_dir, batch_size, train_or_eval='eval', force_preprocess=False):
     ambisonic_2019_data_dir = f"{data_dir}/Tau_sound_events_2019"
     zipped_data_dir = os.path.join(ambisonic_2019_data_dir, 'zipped')
     extracted_data_dir= os.path.join(ambisonic_2019_data_dir, 'raw')
@@ -229,7 +229,7 @@ def get_tau_sed_generator(data_dir, batch_size, train_or_eval='eval'):
     # Preprocess data: create mel feautes and labels
     features_and_labels_dir = f"{processed_data_dir}/features_and_labels_{train_or_eval}"
     features_mean_std_file = f"{processed_data_dir}/mel_features_mean_std_{train_or_eval}.pkl"
-    if not os.path.exists(features_and_labels_dir):
+    if not os.path.exists(features_and_labels_dir) or force_preprocess:
         print("preprocessing raw data")
         audio_paths_and_labels = get_tau_sed_paths_and_labels(audio_dir, meda_data_dir)
         preprocess_data(audio_paths_and_labels, output_dir=features_and_labels_dir, output_mean_std_file=features_mean_std_file)
@@ -238,12 +238,12 @@ def get_tau_sed_generator(data_dir, batch_size, train_or_eval='eval'):
     return DataGenerator(features_and_labels_dir, features_mean_std_file, batch_size)
 
 
-def get_film_clap_generator(data_dir, batch_size):
+def get_film_clap_generator(data_dir, batch_size, force_preprocess=False):
     if not os.path.exists(data_dir):
         raise Exception("You should get you own dataset...")
     features_and_labels_dir = f"{data_dir}/processed/features_and_labels"
     features_mean_std_file = f"{data_dir}/processed/mel_features_mean_std.pkl"
-    if not os.path.exists(features_and_labels_dir):
+    if not os.path.exists(features_and_labels_dir) or force_preprocess:
         print("preprocessing raw data")
         audio_paths_and_labels = get_film_clap_paths_and_labels(os.path.join(data_dir, 'raw'))
         preprocess_data(audio_paths_and_labels, output_dir=features_and_labels_dir, output_mean_std_file=features_mean_std_file)

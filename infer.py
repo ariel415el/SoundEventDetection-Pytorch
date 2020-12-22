@@ -24,14 +24,14 @@ if __name__ == '__main__':
 
     print("Preprocessing audio file..")
     feature_extractor = LogMelExtractor(
-        sample_rate=cfg.sample_rate,
+        sample_rate=cfg.working_sample_rate,
         window_size=cfg.window_size,
         hop_size=cfg.hop_size,
         mel_bins=cfg.mel_bins,
-        fmin=cfg.fmin,
-        fmax=cfg.fmax)
+        fmin=cfg.mel_min_freq,
+        fmax=cfg.mel_max_freq)
 
-    multichannel_audio, _ = read_multichannel_audio(audio_path=args.audio_file, target_fs=cfg.sample_rate)
+    multichannel_audio, _ = read_multichannel_audio(audio_path=args.audio_file, target_fs=cfg.working_sample_rate)
 
     print("Inference..")
     mel_features = feature_extractor.transform_multichannel(multichannel_audio)
@@ -41,5 +41,5 @@ if __name__ == '__main__':
     output_event = output_event.cpu()
     os.makedirs(args.outputs_dir, exist_ok=True)
 
-    plot_debug_image(mel_features, output_event, plot_path=os.path.join(args.outputs_dir, f"{os.path.splitext(os.path.basename(args.audio_file))[0]}.png"))
+    plot_debug_image(mel_features, output=output_event, plot_path=os.path.join(args.outputs_dir, f"{os.path.splitext(os.path.basename(args.audio_file))[0]}.png"))
 

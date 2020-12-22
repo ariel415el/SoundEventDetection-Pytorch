@@ -7,6 +7,7 @@ import soundfile
 from tqdm import tqdm
 
 import config as cfg
+from utils import plot_debug_image
 
 
 class LogMelExtractor(object):
@@ -127,19 +128,19 @@ def preprocess_data(audio_path_and_labels, output_dir, output_mean_std_file):
     os.makedirs(output_dir, exist_ok=True)
 
     feature_extractor = LogMelExtractor(
-        sample_rate=cfg.sample_rate,
+        sample_rate=cfg.working_sample_rate,
         window_size=cfg.window_size,
         hop_size=cfg.hop_size,
         mel_bins=cfg.mel_bins,
-        fmin=cfg.fmin,
-        fmax=cfg.fmax)
+        fmin=cfg.mel_min_freq,
+        fmax=cfg.mel_max_freq)
 
     all_features = []
 
     for (audio_path, start_times, end_times) in tqdm(audio_path_and_labels):
         bare_name = os.path.basename(os.path.splitext(audio_path)[0])
 
-        multichannel_audio, _ = read_multichannel_audio(audio_path=audio_path, target_fs=cfg.sample_rate)
+        multichannel_audio, _ = read_multichannel_audio(audio_path=audio_path, target_fs=cfg.working_sample_rate)
         feature = feature_extractor.transform_multichannel(multichannel_audio)
         all_features.append(feature)
 
@@ -153,3 +154,32 @@ def preprocess_data(audio_path_and_labels, output_dir, output_mean_std_file):
     mean, std = calculate_scalar_of_tensor(all_features)
     with open(output_mean_std_file, 'wb') as f:
         pickle.dump({'mean': mean, 'std': std}, f)
+
+    # Visualize single data sample
+    analyze_data_sample(audio_path, start_times, end_times, feature_extractor, os.path.join(os.path.dirname(output_mean_std_file), "data_sample.png"))
+
+
+def analyze_data_sample(audio_path, start_times, end_times, feature_extractor, plot_path):
+    from dataset.data_generator import create_event_matrix
+    org_multichannel_audio, org_sample_rate = soundfile.read(audio_path)
+
+    multichannel_audio, _ = read_multichannel_audio(audio_path=audio_path, target_fs=cfg.working_sample_rate)
+    singlechannel_audio = multichannel_audio[:, 0]
+    feature = feature_extractor.transform_singlechannel(singlechannel_audio)
+
+    event_matrix = create_event_matrix(feature.shape[0], start_times, end_times)
+    plot_debug_image(feature, target=event_matrix, plot_path=plot_path)
+
+    signal_time = singlechannel_audio.shape[0]/cfg.working_sample_rate
+    FPS = cfg.working_sample_rate / cfg.hop_size
+    print("Data sample analysis:")
+    print(f"\tOriginal audio: {org_multichannel_audio.shape} sample_rate={org_sample_rate}")
+    print(f"\tsingle channel audio: {singlechannel_audio.shape}, sample_rate={cfg.working_sample_rate}")
+    print(f"\tSignal time is (num_samples/sample_rate)=({singlechannel_audio.shape[0]}/{cfg.working_sample_rate})={signal_time:.1f}s")
+    print(f"\tSIFT FPS is (sample_rate/hop_size)=({cfg.working_sample_rate}/{cfg.hop_size})={FPS}")
+    print(f"\tTotal number of frames is (FPS*signal_time)=({FPS}*{signal_time})={FPS*signal_time}")
+    print(f"\tEach frame covers {cfg.window_size} samples or {cfg.window_size/cfg.working_sample_rate:.1f} seconds "
+          f"and allow i.e ({cfg.window_size}//2+1)={cfg.window_size // 2 + 1} frequency bins")
+    print(f"\tFeatures shape: {feature.shape}")
+
+

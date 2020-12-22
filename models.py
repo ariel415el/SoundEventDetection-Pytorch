@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from config import audio_channels
+from config import audio_channels, working_sample_rate, mel_bins, hop_size, classes_num
 
 DEFAULT_CHANNEL_AND_POOL=[(64,2), (128,2), (256,2), (512,1)]
 
@@ -77,6 +77,7 @@ class ConvBlock(nn.Module):
 class Cnn_AvgPooling(nn.Module):
     def __init__(self, classes_num, model_config=DEFAULT_CHANNEL_AND_POOL):
         super(Cnn_AvgPooling, self).__init__()
+        self.model_config = model_config
         self.num_pools = 1 if model_config[0][1] == 2 else 1
         self.conv_blocks = [ConvBlock(in_channels=audio_channels, out_channels=model_config[0][0], pool_size=model_config[0][1])]
         for i in range(1, len(model_config)):
@@ -114,3 +115,22 @@ class Cnn_AvgPooling(nn.Module):
         event_output = interpolate(event_output, 2**(self.num_pools))
 
         return event_output
+
+    def model_description(self):
+        print("Model description")
+        b = 'b'
+        w = 60 * working_sample_rate / hop_size
+        h = mel_bins
+        c = audio_channels
+        # dummy_input = torch.ones()
+        print(f"\tInput: ({b}, {c}, {h}, {w})")
+        for (c, k) in self.model_config:
+            h = h // k
+            w = w // k
+            print(f"\tconv_block -> ({b}, {c}, {h}, {w})")
+
+        print(f"\tmean(dim=3) -> ({b}, {c}, {h})")
+        print(f"\ttranspose(1,2) -> ({b}, {h}, {c})")
+        print(f"\tFC + sigmoid -> ({b}, {h}, {classes_num})")
+        h *= 2**(self.num_pools)
+        print(f"\tinterpolate({2**(self.num_pools)})-> ({b}, {h}, {classes_num})")

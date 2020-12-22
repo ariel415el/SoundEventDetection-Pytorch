@@ -10,7 +10,7 @@ eps = np.finfo(np.float).eps
 
 
 def calculate_metrics(output, target):
-    ths = ths=np.arange(0.0, 1.1, 0.1)
+    ths =np.arange(0.05, 1, 0.05)
     N = min(output.shape[1], target.shape[1])
     T = target[:, 0: N, :]
     O = output[:, 0: N, :]
@@ -33,8 +33,8 @@ def compute_recall_precision(O, T):
     num_gt = T.sum()
     num_positives = O.sum()
 
-    recall = float(TP) / float(num_gt + eps) if num_gt > 0 else 0
-    prec = (float(TP) / float(num_positives + eps)) if num_positives > 0 else 1
+    recall = float(TP) / float(num_gt + eps)
+    prec = float(TP) / float(num_positives + eps)
 
     return recall, prec
 
@@ -116,35 +116,47 @@ class loss_tracker:
         self.metrics_buffer = defaultdict(lambda: list())
 
 
-def plot_debug_image(mel_features, output, target=None, plot_path=None):
+def plot_debug_image(mel_features, output=None, target=None, plot_path=None):
     os.makedirs(os.path.dirname(plot_path), exist_ok=True)
-    num_plots = 2 if target is None else 3
+    num_plots = 1
+    if output is not None:
+        num_plots += 1
+    if target is not None:
+        num_plots += 1
+
     fig, axs = plt.subplots(num_plots, 1, figsize=(15, 10))
 
-    frames_num = output.shape[1]
-    length_in_second = frames_num / float(cfg.frames_per_second)
+    frames_num = mel_features.shape[0]
 
     axs[0].matshow(mel_features.T, origin='lower', aspect='auto', cmap='jet')
-    axs[1].matshow(output[0].T, origin='lower', aspect='auto', cmap='jet')
-
     axs[0].set_title('Log mel spectrogram', color='r')
-    axs[1].set_title("Predicted sound events)", color='b')
-    if target is not None:
-        axs[2].matshow(target[0].T, origin='lower', aspect='auto', cmap='jet')
-        axs[2].set_title('Reference sound events', color='r')
-
-    for i in range(2):
-        axs[i].set_xticks([0, frames_num])
-        axs[i].set_xticklabels(['0', '{:.1f} s'.format(length_in_second)])
-        axs[i].xaxis.set_ticks_position('bottom')
-        axs[i].set_yticks(np.arange(cfg.classes_num))
-        axs[i].set_yticklabels(cfg.tau_sed_labels)
-        axs[i].yaxis.grid(color='w', linestyle='solid', linewidth=0.2)
 
     axs[0].set_ylabel('Mel bins')
+
     axs[0].set_yticks([0, cfg.mel_bins])
     axs[0].set_yticklabels([0, cfg.mel_bins])
+
+    if output is not None:
+        axs[1].matshow(output.T, origin='lower', aspect='auto', cmap='jet')
+        axs[1].set_title("Predicted sound events", color='b')
+    if target is not None:
+        idx = 1 if output is None else 2
+        axs[idx].matshow(target.T, origin='lower', aspect='auto', cmap='jet')
+        axs[idx].set_title(f"Reference sound events, marked frames: {target.sum()}", color='r')
+
+    xticks = np.concatenate((np.arange(0, frames_num - 100, 100), [frames_num]))
+    xlabels = [f"frame {x}\n{x//cfg.frames_per_second:.1f}s" for x in xticks]
+    for i in range(num_plots):
+        # axs[i].set_xlabel('frame/second')
+        axs[i].set_xticks(xticks)
+        axs[i].set_xticklabels(xlabels)
+        axs[i].xaxis.set_ticks_position('bottom')
+        if i > 0:
+            axs[i].set_yticks(np.arange(cfg.classes_num))
+            axs[i].set_yticklabels(cfg.tau_sed_labels)
+            axs[i].yaxis.grid(color='w', linestyle='solid', linewidth=0.2)
 
     # fig.tight_layout()
     plt.savefig(plot_path)
     plt.close(fig)
+

@@ -1,12 +1,14 @@
-sample_rate = 32000
-window_size = 1024
-hop_size = 500      # So that there are 64 frames per second
+working_sample_rate = 32000
+# window_size = 1024  # SIFT window size allows window_size // 2 + 1frequency bins
+# hop_size = 500      # So that there are (sample_rate / sample_rate) frames per second
+window_size = 2**14  # SIFT window size allows window_size // 2 + 1frequency bins
+hop_size = 8000      # So that there are (sample_rate / sample_rate) frames per second
 mel_bins = 64
-fmin = 50       # Hz
-fmax = 14000    # Hz
+mel_min_freq = 50       # Hz
+mel_max_freq = 14000    # Hz
 audio_channels = 1
 
-frames_per_second = sample_rate // hop_size
+frames_per_second = working_sample_rate // hop_size
 time_steps = frames_per_second * 10     # 10-second log mel spectrogram as input
 
 

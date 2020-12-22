@@ -6,7 +6,7 @@ import numpy as np
 from utils import binary_crossentropy, loss_tracker, calculate_metrics, plot_debug_image
 from models import *
 import config as cfg
-from dataset.data_generator import get_film_clap_generator
+from dataset.data_generator import get_film_clap_generator, get_tau_sed_generator
 
 
 def eval(model, data_generator, outputs_dir, iteration, device, limit_val_samples=4):
@@ -31,7 +31,7 @@ def eval(model, data_generator, outputs_dir, iteration, device, limit_val_sample
         max_f1_vals.append(np.max(f1_vals))
 
         unormelized_mel = mel_features[0][0] * data_generator.std + data_generator.mean
-        plot_debug_image(unormelized_mel, output, target, plot_path=os.path.join(outputs_dir, f"Iter-{iteration}_img-{idx}.png"))
+        plot_debug_image(unormelized_mel, output=output[0], target=target[0], plot_path=os.path.join(outputs_dir, f"Iter-{iteration}_img-{idx}.png"))
 
     return losses, max_f1_vals, recal_sets, precision_sets
 
@@ -97,17 +97,18 @@ if __name__ == '__main__':
     parser.add_argument('--num_train_steps', type=int, default=5000)
     parser.add_argument('--log_freq', type=int, default=100)
     parser.add_argument('--device', default='cuda:0', type=str)
+    parser.add_argument('--force_preprocess', action='store_true', default=False)
 
     args = parser.parse_args()
 
     device = torch.device("cuda:0" if torch.cuda.is_available() and args.device == "cuda:0" else "cpu")
 
     model = Cnn_AvgPooling(cfg.classes_num, model_config=[(64,2), (128,2)]).to(device)
+    model.model_description()
     if args.ckpt != '':
         checkpoint = torch.load(args.ckpt, map_location=device)
         model.load_state_dict(checkpoint['model'])
-    # data_generator = get_tau_sed_generator(args.dataset_dir, args.batch_size, train_or_eval='dev')
-    # data_generator = get_film_clap_generator("../processed_datasets/Film_take_clap_processed", args.batch_size)
-    data_generator = get_film_clap_generator("../data/Film_take_clap", args.batch_size)
+    # data_generator = get_tau_sed_generator(args.dataset_dir, args.batch_size, train_or_eval='dev', force_preprocess=args.force_preprocess)
+    data_generator = get_film_clap_generator("../data/Film_take_clap", args.batch_size, force_preprocess=args.force_preprocess)
 
     train(model, data_generator, num_steps=args.num_train_steps, outputs_dir=args.outputs_root, device=device, log_freq=args.log_freq)
