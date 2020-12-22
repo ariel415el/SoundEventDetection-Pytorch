@@ -9,7 +9,7 @@ import config as cfg
 from dataset.data_generator import get_film_clap_generator
 
 
-def eval(model, data_generator, outputs_dir, iteration, device, limit_val_samples=32):
+def eval(model, data_generator, outputs_dir, iteration, device, limit_val_samples=4):
     losses = []
     recal_sets, precision_sets, max_f1_vals = [], [], []
     for idx, (mel_features, target, file_name) in enumerate(data_generator.generate_validate('validate', max_validate_num=limit_val_samples)):
@@ -23,7 +23,7 @@ def eval(model, data_generator, outputs_dir, iteration, device, limit_val_sample
         output = output.numpy()
         target = target.numpy()
 
-        f1_vals, recal_vals, precision_vals = calculate_metrics(output, target, ths=np.arange(0.1, 1, 0.1))
+        f1_vals, recal_vals, precision_vals = calculate_metrics(output, target)
 
         losses.append(loss.item())
         recal_sets.append(recal_vals)

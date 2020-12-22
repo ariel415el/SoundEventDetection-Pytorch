@@ -9,7 +9,8 @@ import config as cfg
 eps = np.finfo(np.float).eps
 
 
-def calculate_metrics(output, target, ths):
+def calculate_metrics(output, target):
+    ths = ths=np.arange(0.0, 1.1, 0.1)
     N = min(output.shape[1], target.shape[1])
     T = target[:, 0: N, :]
     O = output[:, 0: N, :]
@@ -29,8 +30,11 @@ def calculate_metrics(output, target, ths):
 def compute_recall_precision(O, T):
     TP = ((2 * T - O) == 1).sum()
 
-    recall = float(TP) / float(T.sum() + eps)
-    prec = float(TP) / float(O.sum() + eps)
+    num_gt = T.sum()
+    num_positives = O.sum()
+
+    recall = float(TP) / float(num_gt + eps) if num_gt > 0 else 0
+    prec = (float(TP) / float(num_positives + eps)) if num_positives > 0 else 1
 
     return recall, prec
 
@@ -96,7 +100,6 @@ class loss_tracker:
         plt.yticks([0, 0.25, 0.5, 0.75, 1])
         plt.xlabel("recall")
         plt.ylabel("precision")
-        plt.legend()
         plt.savefig(os.path.join(self.plot_dir, 'ROC.png'))
         plt.clf()
 
