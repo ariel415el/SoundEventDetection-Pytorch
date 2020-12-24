@@ -4,7 +4,7 @@ from torch.nn import functional as F
 from collections import defaultdict
 import os
 
-import config as cfg
+from config import tau_sed_labels, frames_per_second, classes_num, mel_bins
 
 eps = np.finfo(np.float).eps
 
@@ -33,8 +33,8 @@ def compute_recall_precision(O, T):
     num_gt = T.sum()
     num_positives = O.sum()
 
-    recall = float(TP) / float(num_gt + eps)
-    prec = float(TP) / float(num_positives + eps)
+    recall = float(TP) / float(num_gt) if num_gt > 0 else 0
+    prec = (float(TP) / float(num_positives)) if num_positives > 0 else 1
 
     return recall, prec
 
@@ -133,8 +133,8 @@ def plot_debug_image(mel_features, output=None, target=None, plot_path=None):
 
     axs[0].set_ylabel('Mel bins')
 
-    axs[0].set_yticks([0, cfg.mel_bins])
-    axs[0].set_yticklabels([0, cfg.mel_bins])
+    axs[0].set_yticks([0, mel_bins])
+    axs[0].set_yticklabels([0, mel_bins])
 
     if output is not None:
         axs[1].matshow(output.T, origin='lower', aspect='auto', cmap='jet')
@@ -142,21 +142,33 @@ def plot_debug_image(mel_features, output=None, target=None, plot_path=None):
     if target is not None:
         idx = 1 if output is None else 2
         axs[idx].matshow(target.T, origin='lower', aspect='auto', cmap='jet')
-        axs[idx].set_title(f"Reference sound events, marked frames: {target.sum()}", color='r')
+        axs[idx].set_title(f"Reference sound events, marked frames: {int(target.sum())}", color='r')
 
     xticks = np.concatenate((np.arange(0, frames_num - 100, 100), [frames_num]))
-    xlabels = [f"frame {x}\n{x//cfg.frames_per_second:.1f}s" for x in xticks]
+    xlabels = [f"frame {x}\n{x//frames_per_second:.1f}s" for x in xticks]
     for i in range(num_plots):
         # axs[i].set_xlabel('frame/second')
         axs[i].set_xticks(xticks)
         axs[i].set_xticklabels(xlabels)
         axs[i].xaxis.set_ticks_position('bottom')
         if i > 0:
-            axs[i].set_yticks(np.arange(cfg.classes_num))
-            axs[i].set_yticklabels(cfg.tau_sed_labels)
+            axs[i].set_yticks(np.arange(classes_num))
+            axs[i].set_yticklabels(tau_sed_labels)
             axs[i].yaxis.grid(color='w', linestyle='solid', linewidth=0.2)
 
     # fig.tight_layout()
     plt.savefig(plot_path)
     plt.close(fig)
 
+def human_format(num):
+    """
+    :param num: A number to print in a nice readable way.
+    :return: A string representing this number in a readable way (e.g. 1000 --> 1K).
+    """
+    magnitude = 0
+
+    while abs(num) >= 1000:
+        magnitude += 1
+        num /= 1000.0
+
+    return '%.1f%s' % (num, ['', 'K', 'M', 'G', 'T', 'P'][magnitude])  # add more suffices if you need them

@@ -9,7 +9,8 @@ import torch
 import config as cfg
 from dataset.download_tau_sed_2019 import download_foa_data, extract_foa_data
 from dataset.preprocess import preprocess_data
-
+from utils import human_format
+cfg_descriptor = f"SR-{human_format(cfg.working_sample_rate)}_WS-{human_format(cfg.window_size)}_HS-{human_format(cfg.hop_size)}"
 
 def create_event_matrix(frames_num, start_times, end_times):
     # Researve space data
@@ -212,7 +213,7 @@ def get_tau_sed_generator(data_dir, batch_size, train_or_eval='eval', force_prep
     ambisonic_2019_data_dir = f"{data_dir}/Tau_sound_events_2019"
     zipped_data_dir = os.path.join(ambisonic_2019_data_dir, 'zipped')
     extracted_data_dir= os.path.join(ambisonic_2019_data_dir, 'raw')
-    processed_data_dir= os.path.join(ambisonic_2019_data_dir, 'processed')
+    processed_data_dir= os.path.join(ambisonic_2019_data_dir, f"processed_{cfg_descriptor}")
     audio_dir = f"{extracted_data_dir}/foa_{train_or_eval}"
     meda_data_dir = f"{extracted_data_dir}/metadata_{train_or_eval}"
 
@@ -241,8 +242,8 @@ def get_tau_sed_generator(data_dir, batch_size, train_or_eval='eval', force_prep
 def get_film_clap_generator(data_dir, batch_size, force_preprocess=False):
     if not os.path.exists(data_dir):
         raise Exception("You should get you own dataset...")
-    features_and_labels_dir = f"{data_dir}/processed/features_and_labels"
-    features_mean_std_file = f"{data_dir}/processed/mel_features_mean_std.pkl"
+    features_and_labels_dir = f"{data_dir}/processed_{cfg_descriptor}/features_and_labels"
+    features_mean_std_file = f"{data_dir}/processed_{cfg_descriptor}/mel_features_mean_std.pkl"
     if not os.path.exists(features_and_labels_dir) or force_preprocess:
         print("preprocessing raw data")
         audio_paths_and_labels = get_film_clap_paths_and_labels(os.path.join(data_dir, 'raw'))

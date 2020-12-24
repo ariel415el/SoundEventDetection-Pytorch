@@ -119,8 +119,8 @@ class Cnn_AvgPooling(nn.Module):
     def model_description(self):
         print("Model description")
         b = 'b'
-        w = 60 * working_sample_rate / hop_size
-        h = mel_bins
+        w = mel_bins
+        h = 60 * working_sample_rate // hop_size
         c = audio_channels
         # dummy_input = torch.ones()
         print(f"\tInput: ({b}, {c}, {h}, {w})")
