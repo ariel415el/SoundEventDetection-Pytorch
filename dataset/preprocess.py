@@ -175,9 +175,9 @@ def analyze_data_sample(audio_path, start_times, end_times, feature_extractor, p
     print("Data sample analysis:")
     print(f"\tOriginal audio: {org_multichannel_audio.shape} sample_rate={org_sample_rate}")
     print(f"\tsingle channel audio: {singlechannel_audio.shape}, sample_rate={cfg.working_sample_rate}")
-    print(f"\tSignal time is (num_samples/sample_rate)=({singlechannel_audio.shape[0]}/{cfg.working_sample_rate})={signal_time:.1f}s")
-    print(f"\tSIFT FPS is (sample_rate/hop_size)=({cfg.working_sample_rate}/{cfg.hop_size})={FPS}")
-    print(f"\tTotal number of frames is (FPS*signal_time)=({FPS}*{signal_time})={FPS*signal_time}")
+    print(f"\tSignal time is (num_samples/sample_rate)={signal_time:.1f}s")
+    print(f"\tSIFT FPS is (sample_rate/hop_size)={FPS}")
+    print(f"\tTotal number of frames is (FPS*signal_time)={FPS*signal_time}")
     print(f"\tEach frame covers {cfg.window_size} samples or {cfg.window_size/cfg.working_sample_rate:.1f} seconds "
           f"and allow i.e ({cfg.window_size}//2+1)={cfg.window_size // 2 + 1} frequency bins")
     print(f"\tFeatures shape: {feature.shape}")

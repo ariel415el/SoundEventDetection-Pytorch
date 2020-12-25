@@ -12,7 +12,11 @@ from dataset.preprocess import preprocess_data
 from utils import human_format
 cfg_descriptor = f"SR-{human_format(cfg.working_sample_rate)}_WS-{human_format(cfg.window_size)}_HS-{human_format(cfg.hop_size)}"
 
+
 def create_event_matrix(frames_num, start_times, end_times):
+    """
+    Create a per-frame classification matrix whith 1 in times specified by start/end times and 0 elsewhere
+    """
     # Researve space data
     event_matrix = np.zeros((frames_num, cfg.classes_num))
 
@@ -38,14 +42,13 @@ class DataGenerator(object):
         self.lb_to_idx = cfg.lb_to_idx
         self.time_steps = cfg.time_steps
 
+        # Split to train, test
         feature_names = os.listdir(features_and_labels_dir)
         shuffle(feature_names)
-
         val_split = int(len(feature_names)*val_perc)
-        print(f"Data generator initiated with {len(feature_names) - val_split} train and {val_split} val images")
         self.train_feature_names = feature_names[val_split:]
-
         self.validate_feature_names = feature_names[:val_split]
+        print(f"Data generator initiated with {len(feature_names) - val_split} train and {val_split} val images")
 
         self.train_features_list = []
         self.train_event_matrix_list = []
@@ -166,6 +169,10 @@ class DataGenerator(object):
 
 
 def get_film_clap_paths_and_labels(data_root):
+    """
+    Parses the Film_clap raw data and collect audio file paths , start_times and end_times of claps
+    """
+    time_margin = 0.5
     result = []
     num_claps = 0
     num_audio_files = 0
@@ -183,8 +190,8 @@ def get_film_clap_paths_and_labels(data_root):
                 soundfile_path = os.path.join(dirpath, name)
                 if os.path.exists(soundfile_path):
                     relevant_df = df.loc[df['Clip Name'] == name]
-                    start_times = [row[1] - 0.25 for i, row in relevant_df.iterrows()]
-                    end_times = [row[1] + 0.25 for i, row in relevant_df.iterrows()]
+                    start_times = [row[1] - time_margin for i, row in relevant_df.iterrows()]
+                    end_times = [row[1] + time_margin for i, row in relevant_df.iterrows()]
                     result += [(soundfile_path,start_times, end_times)]
                     num_claps += len(start_times)
                     num_audio_files += 1
@@ -193,6 +200,9 @@ def get_film_clap_paths_and_labels(data_root):
 
 
 def get_tau_sed_paths_and_labels(audio_dir, labels_data_dir):
+    """
+    Parses the Tau_sed raw data and collect audio file paths, start_times and end_times of claps
+    """
     results = []
     for audio_fname in os.listdir(audio_dir):
         bare_name = os.path.splitext(audio_fname)[0]
@@ -210,6 +220,10 @@ def get_tau_sed_paths_and_labels(audio_dir, labels_data_dir):
 
 
 def get_tau_sed_generator(data_dir, batch_size, train_or_eval='eval', force_preprocess=False):
+    """
+    Download, extract and preprocess the tau sed datset
+    force_preprocess: Force the preprocess phase to repeate: usefull in case you change the preprocess parameters
+    """
     ambisonic_2019_data_dir = f"{data_dir}/Tau_sound_events_2019"
     zipped_data_dir = os.path.join(ambisonic_2019_data_dir, 'zipped')
     extracted_data_dir= os.path.join(ambisonic_2019_data_dir, 'raw')
@@ -240,6 +254,9 @@ def get_tau_sed_generator(data_dir, batch_size, train_or_eval='eval', force_prep
 
 
 def get_film_clap_generator(data_dir, batch_size, force_preprocess=False):
+    """
+    Preprocess and Creates a data generator for the film_clap dataset
+    """
     if not os.path.exists(data_dir):
         raise Exception("You should get you own dataset...")
     features_and_labels_dir = f"{data_dir}/processed_{cfg_descriptor}/features_and_labels"

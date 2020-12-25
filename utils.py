@@ -144,7 +144,8 @@ def plot_debug_image(mel_features, output=None, target=None, plot_path=None):
         axs[idx].matshow(target.T, origin='lower', aspect='auto', cmap='jet')
         axs[idx].set_title(f"Reference sound events, marked frames: {int(target.sum())}", color='r')
 
-    xticks = np.concatenate((np.arange(0, frames_num - 100, 100), [frames_num]))
+    tick_hop = frames_num // 8
+    xticks = np.concatenate((np.arange(0, frames_num - tick_hop, tick_hop), [frames_num]))
     xlabels = [f"frame {x}\n{x//frames_per_second:.1f}s" for x in xticks]
     for i in range(num_plots):
         # axs[i].set_xlabel('frame/second')

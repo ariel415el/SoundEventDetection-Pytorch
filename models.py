@@ -132,5 +132,9 @@ class Cnn_AvgPooling(nn.Module):
         print(f"\tmean(dim=3) -> ({b}, {c}, {h})")
         print(f"\ttranspose(1,2) -> ({b}, {h}, {c})")
         print(f"\tFC + sigmoid -> ({b}, {h}, {classes_num})")
+        num_outputs = h
         h *= 2**(self.num_pools)
+        num_frames = h
+        frame_duration = hop_size / working_sample_rate
         print(f"\tinterpolate({2**(self.num_pools)})-> ({b}, {h}, {classes_num})")
+        print(f"\tModel has {num_outputs} outputs before interpolation, each stands for {2**(self.num_pools)} frames or {frame_duration:.2f}s")

@@ -3,4 +3,4 @@
 - librosa
 
 # Credits
-- Greatly inspired by https://github.com/yinkalario/DCASE2019-TASK3
+- Greatly inspired by https://github.com/qiuqiangkong/dcase2019_task3
