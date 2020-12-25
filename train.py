@@ -3,7 +3,7 @@ import argparse
 from tqdm import tqdm
 from torch import optim
 import numpy as np
-from utils import binary_crossentropy, loss_tracker, calculate_metrics, plot_debug_image
+from utils import binary_crossentropy, ProgressPlotter, calculate_metrics, plot_debug_image
 from models import *
 import config as cfg
 from dataset.data_generator import get_film_clap_generator, get_tau_sed_generator
@@ -31,14 +31,15 @@ def eval(model, data_generator, outputs_dir, iteration, device, limit_val_sample
         max_f1_vals.append(np.max(f1_vals))
 
         unormelized_mel = mel_features[0][0] * data_generator.std + data_generator.mean
-        plot_debug_image(unormelized_mel, output=output[0], target=target[0], plot_path=os.path.join(outputs_dir, f"Iter-{iteration}_img-{idx}.png"))
+        plot_debug_image(unormelized_mel, output=output[0], target=target[0],
+                         plot_path=os.path.join(outputs_dir, 'images', f"Iter-{iteration}_img-{idx}.png"))
 
     return losses, max_f1_vals, recal_sets, precision_sets
 
 
 def train(model, data_generator, num_steps, log_freq, outputs_dir, device):
     lr_decay_freq = 100
-    plotter = loss_tracker(outputs_dir)
+    plotter = ProgressPlotter()
     # Optimizer
     optimizer = optim.Adam(model.parameters(), lr=1e-3, betas=(0.9, 0.999), eps=1e-08, weight_decay=0., amsgrad=True)
     os.makedirs(os.path.join(outputs_dir, 'checkpoints'), exist_ok=True)
@@ -65,16 +66,10 @@ def train(model, data_generator, num_steps, log_freq, outputs_dir, device):
 
         if iterations % log_freq == 0:
             print(f"step: {iterations}, loss: {loss.item():.2f}")
-            losses, max_f1_vals, recal_sets, precision_sets = eval(model, data_generator,
-                                                                   outputs_dir=os.path.join(outputs_dir, 'images'),
-                                                                   iteration=iterations,
-                                                                   device=device)
+            val_losses, max_f1_vals, recal_sets, precision_sets = eval(model, data_generator, outputs_dir, iteration=iterations, device=device)
 
-            plotter.report_val_losses(losses)
-            plotter.report_val_metrics({'max_f1_score':max_f1_vals})
-            plotter.report_val_roc(recal_sets, precision_sets)
-
-            plotter.plot()
+            plotter.report_validation_metrics(val_losses, max_f1_vals, recal_sets, precision_sets)
+            plotter.plot(outputs_dir, iterations)
 
             checkpoint = {
                 'iterations': iterations,
@@ -108,7 +103,7 @@ if __name__ == '__main__':
     if args.ckpt != '':
         checkpoint = torch.load(args.ckpt, map_location=device)
         model.load_state_dict(checkpoint['model'])
-    # data_generator = get_tau_sed_generator(args.dataset_dir, args.batch_size, train_or_eval='dev', force_preprocess=args.force_preprocess)
-    data_generator = get_film_clap_generator("../data/Film_take_clap", args.batch_size, force_preprocess=args.force_preprocess)
+    data_generator = get_tau_sed_generator(args.dataset_dir, args.batch_size, train_or_eval='eval', force_preprocess=args.force_preprocess)
+    # data_generator = get_film_clap_generator("../data/Film_take_clap", args.batch_size, force_preprocess=args.force_preprocess)
 
     train(model, data_generator, num_steps=args.num_train_steps, outputs_dir=args.outputs_root, device=device, log_freq=args.log_freq)

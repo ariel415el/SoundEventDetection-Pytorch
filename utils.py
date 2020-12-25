@@ -55,65 +55,55 @@ def binary_crossentropy(output, target):
         target[:, 0: N, :])
 
 
-class loss_tracker:
-    def __init__(self, plot_dir):
+class ProgressPlotter:
+    def __init__(self):
         self.train_buffer = []
         self.train_avgs = []
-        self.val_buffer = []
         self.val_avgs = []
-        self.metrics_buffer = defaultdict(lambda: list())
-        self.metrics_avgs = defaultdict(lambda: list())
-        self.plot_dir = plot_dir
+        self.f1_score_avgs = []
 
     def report_train_loss(self, loss):
         self.train_buffer.append(loss)
 
-    def report_val_losses(self, losses):
-        self.val_buffer += losses
+    def report_validation_metrics(self, val_losses, f1_scores, recal_sets, precision_sets):
+        self.val_avgs.append(np.mean(val_losses, axis=0))
+        self.f1_score_avgs.append(np.mean(f1_scores, axis=0))
+        self.last_recal_vals = np.mean(recal_sets, axis=0)
+        self.last_precision_vals = np.mean(precision_sets, axis=0)
+        self.last_recal_vals, self.last_precision_vals = zip(*sorted(zip(self.last_recal_vals, self.last_precision_vals)))
 
-    def report_val_metrics(self, metrics):
-        for metric_name, values in metrics.items():
-            self.metrics_buffer[metric_name] += values
+    def plot(self, outputs_dir, iterations):
+        self.plot_train_eval_losses(os.path.join(outputs_dir, 'Training_loss.png'))
+        self.plot_max_f1_scores(os.path.join(outputs_dir, 'f1_scores.png'))
+        self.plot_roc(os.path.join(outputs_dir, 'ROC_plots', f"Roc-iteration-{iterations}.png"))
 
-    def report_val_roc(self, recal_sets, precision_sets):
-        self.recal_vals = np.mean(recal_sets, axis=0)
-        self.precision_vals = np.mean(precision_sets, axis=0)
-        self.recal_vals, self.precision_vals = zip(*sorted(zip(self.recal_vals, self.precision_vals)))
-
-    def plot(self):
+    def plot_train_eval_losses(self, plot_path):
         self.train_avgs += [np.mean(self.train_buffer)]
-        self.val_avgs += [np.mean(self.val_buffer)]
         self.train_buffer = []
-        self.val_buffer = []
 
         plt.plot(np.arange(len(self.train_avgs)), self.train_avgs, label='train', color='blue')
         plt.plot(np.arange(len(self.val_avgs)), self.val_avgs, label='validation', color='orange')
         plt.xlabel("train step")
         plt.ylabel("loss")
         plt.legend()
-        plt.savefig(os.path.join(self.plot_dir, 'Training_loss.png'))
+        plt.savefig(plot_path)
         plt.clf()
 
+    def plot_max_f1_scores(self, plot_path):
+        plt.plot(np.arange(len(self.f1_score_avgs)), self.f1_score_avgs)
+        plt.title("F1 scores")
+        plt.savefig(plot_path)
+        plt.clf()
 
-        plt.plot(self.recal_vals, self.precision_vals)
+    def plot_roc(self, plot_path):
+        os.makedirs(os.path.dirname(plot_path), exist_ok=True)
+        plt.plot(self.last_recal_vals, self.last_precision_vals)
         plt.xticks([0, 0.25, 0.5, 0.75, 1])
         plt.yticks([0, 0.25, 0.5, 0.75, 1])
-        plt.xlabel("recall")
-        plt.ylabel("precision")
-        plt.savefig(os.path.join(self.plot_dir, 'ROC.png'))
+        plt.xlabel("Recall")
+        plt.ylabel("Precision")
+        plt.savefig(plot_path)
         plt.clf()
-
-        colors = ['r', 'g', 'b', 'y']
-        for i, (metric_name, values) in enumerate(self.metrics_buffer.items()):
-            self.metrics_avgs[metric_name] += [np.mean(values)]
-
-            plt.plot(np.arange(len(self.metrics_avgs[metric_name])), self.metrics_avgs[metric_name], label=metric_name, color=colors[i])
-
-        plt.legend()
-        plt.savefig(os.path.join(self.plot_dir, 'Metrics.png'))
-        plt.clf()
-
-        self.metrics_buffer = defaultdict(lambda: list())
 
 
 def plot_debug_image(mel_features, output=None, target=None, plot_path=None):
