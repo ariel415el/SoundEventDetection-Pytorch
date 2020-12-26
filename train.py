@@ -23,18 +23,17 @@ def eval(model, data_generator, outputs_dir, iteration, device, limit_val_sample
         output = output.numpy()
         target = target.numpy()
 
-        f1_vals, recal_vals, precision_vals = calculate_metrics(output, target)
+        recal_vals, precision_vals = calculate_metrics(output, target)
 
         losses.append(loss.item())
         recal_sets.append(recal_vals)
         precision_sets.append(precision_vals)
-        max_f1_vals.append(np.max(f1_vals))
 
         unormelized_mel = mel_features[0][0] * data_generator.std + data_generator.mean
         plot_debug_image(unormelized_mel, output=output[0], target=target[0],
                          plot_path=os.path.join(outputs_dir, 'images', f"Iter-{iteration}_img-{idx}.png"))
 
-    return losses, max_f1_vals, recal_sets, precision_sets
+    return losses, recal_sets, precision_sets
 
 
 def train(model, data_generator, num_steps, log_freq, outputs_dir, device):
@@ -66,9 +65,9 @@ def train(model, data_generator, num_steps, log_freq, outputs_dir, device):
 
         if iterations % log_freq == 0:
             print(f"step: {iterations}, loss: {loss.item():.2f}")
-            val_losses, max_f1_vals, recal_sets, precision_sets = eval(model, data_generator, outputs_dir, iteration=iterations, device=device)
+            val_losses, recal_sets, precision_sets = eval(model, data_generator, outputs_dir, iteration=iterations, device=device)
 
-            plotter.report_validation_metrics(val_losses, max_f1_vals, recal_sets, precision_sets)
+            plotter.report_validation_metrics(val_losses, recal_sets, precision_sets)
             plotter.plot(outputs_dir, iterations)
 
             checkpoint = {

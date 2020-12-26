@@ -20,11 +20,9 @@ def calculate_metrics(output, target):
     for th in ths:
         O_discrete = np.where(O > th, 1, 0)
         recall, prec = compute_recall_precision(O_discrete, T)
-        f1_score = 2 * prec * recall / (prec + recall + eps)
         recals.append(recall)
         precisions.append(prec)
-        f1_scores.append(f1_score)
-    return f1_scores, recals, precisions
+    return recals, precisions
 
 
 def compute_recall_precision(O, T):
@@ -60,22 +58,33 @@ class ProgressPlotter:
         self.train_buffer = []
         self.train_avgs = []
         self.val_avgs = []
+        self.fh_score_avgs = []
         self.f1_score_avgs = []
+        self.f5_score_avgs = []
+        self.f10_score_avgs = []
+        self.iterations = []
 
     def report_train_loss(self, loss):
         self.train_buffer.append(loss)
 
-    def report_validation_metrics(self, val_losses, f1_scores, recal_sets, precision_sets):
+    def report_validation_metrics(self, val_losses, recal_sets, precision_sets):
         self.val_avgs.append(np.mean(val_losses, axis=0))
-        self.f1_score_avgs.append(np.mean(f1_scores, axis=0))
         self.last_recal_vals = np.mean(recal_sets, axis=0)
         self.last_precision_vals = np.mean(precision_sets, axis=0)
-        self.last_recal_vals, self.last_precision_vals = zip(*sorted(zip(self.last_recal_vals, self.last_precision_vals)))
+        self.fh_score_avgs.append((self.last_recal_vals[0] + self.last_precision_vals[0]) / 2)
+        f1_scores = (2 * self.last_recal_vals * self.last_precision_vals) / (self.last_precision_vals + self.last_recal_vals)
+        f5_scores = ((1+5**2) * self.last_recal_vals * self.last_precision_vals) / (5**2 * self.last_precision_vals + self.last_recal_vals)
+        f10_scores = ((1+10**2) * self.last_recal_vals * self.last_precision_vals) / (10**2 * self.last_precision_vals + self.last_recal_vals)
+        self.f1_score_avgs.append(np.max(f1_scores))
+        self.f5_score_avgs.append(np.max(f5_scores))
+        self.f10_score_avgs.append(np.max(f10_scores))
 
-    def plot(self, outputs_dir, iterations):
+
+    def plot(self, outputs_dir, iteration):
+        self.iterations.append(iteration)
         self.plot_train_eval_losses(os.path.join(outputs_dir, 'Training_loss.png'))
-        self.plot_max_f1_scores(os.path.join(outputs_dir, 'f1_scores.png'))
-        self.plot_roc(os.path.join(outputs_dir, 'ROC_plots', f"Roc-iteration-{iterations}.png"))
+        self.plot_max_fscores(os.path.join(outputs_dir, 'f1_scores.png'))
+        self.plot_roc(os.path.join(outputs_dir, 'ROC_plots', f"Roc-iteration-{iteration}.png"))
 
     def plot_train_eval_losses(self, plot_path):
         self.train_avgs += [np.mean(self.train_buffer)]
@@ -83,15 +92,21 @@ class ProgressPlotter:
 
         plt.plot(np.arange(len(self.train_avgs)), self.train_avgs, label='train', color='blue')
         plt.plot(np.arange(len(self.val_avgs)), self.val_avgs, label='validation', color='orange')
+        plt.xticks(range(len(self.iterations)), self.iterations)
         plt.xlabel("train step")
         plt.ylabel("loss")
         plt.legend()
         plt.savefig(plot_path)
         plt.clf()
 
-    def plot_max_f1_scores(self, plot_path):
-        plt.plot(np.arange(len(self.f1_score_avgs)), self.f1_score_avgs)
-        plt.title("F1 scores")
+    def plot_max_fscores(self, plot_path):
+        plt.plot(np.arange(len(self.f1_score_avgs)), self.f1_score_avgs, color='blue', label='f1 scroe')
+        plt.plot(np.arange(len(self.f5_score_avgs)), self.f5_score_avgs, color='green', label='f5 scroe')
+        plt.plot(np.arange(len(self.f10_score_avgs)), self.f10_score_avgs, color='orange', label='f10 scroe')
+        plt.plot(np.arange(len(self.fh_score_avgs)), self.fh_score_avgs, color='red', label='Fscore in highest recall')
+        plt.title("F scores")
+        plt.xticks(range(len(self.iterations)), self.iterations)
+        plt.legend()
         plt.savefig(plot_path)
         plt.clf()
 
@@ -100,6 +115,7 @@ class ProgressPlotter:
         plt.plot(self.last_recal_vals, self.last_precision_vals)
         plt.xticks([0, 0.25, 0.5, 0.75, 1])
         plt.yticks([0, 0.25, 0.5, 0.75, 1])
+        plt.title(f"Max recall {self.last_recal_vals[0]:.1f} with precision: {self.last_precision_vals[0]:.1f}")
         plt.xlabel("Recall")
         plt.ylabel("Precision")
         plt.savefig(plot_path)

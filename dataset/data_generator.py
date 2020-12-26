@@ -1,7 +1,7 @@
 import numpy as np
 import os
 import pickle
-from random import shuffle
+from random import shuffle, choice
 
 import pandas as pd
 import torch
@@ -37,10 +37,7 @@ class DataGenerator(object):
         self.batch_size = batch_size
         self.random_state = np.random.RandomState(seed)
 
-        self.frames_per_second = cfg.frames_per_second
-        self.classes_num = cfg.classes_num
-        self.lb_to_idx = cfg.lb_to_idx
-        self.time_steps = cfg.time_steps
+        self.training_crop_size = cfg.training_crop_size
 
         # Split to train, test
         feature_names = os.listdir(features_and_labels_dir)
@@ -65,7 +62,7 @@ class DataGenerator(object):
             '''Number of frames of the log mel spectrogram of an audio 
             recording. May be different from file to file'''
 
-            index_array = np.arange(frame_index, frame_index + frames_num - self.time_steps)
+            index_array = np.arange(frame_index, frame_index + frames_num - self.training_crop_size)
             frame_index += frames_num
 
             # Append data
@@ -93,12 +90,12 @@ class DataGenerator(object):
         self.pointer = 0
 
     def generate_train(self):
-        '''Generate mini-batch data for training.
-
+        '''
+        Generate mini-batch data for training.
+        Samples an start indice and crops a self.training_crop_in_seconds long segment from the concatenated featues
         Returns:
           batch_data_dict: dict containing feature, event, elevation and azimuth
         '''
-
         while True:
             # Reset pointer
             if self.pointer >= len(self.train_index_array):
@@ -108,7 +105,7 @@ class DataGenerator(object):
             # Get batch indexes
             batch_indexes = self.train_index_array[self.pointer: self.pointer + self.batch_size]
 
-            data_indexes = batch_indexes[:, None] + np.arange(self.time_steps)
+            data_indexes = batch_indexes[:, None] + np.arange(self.training_crop_size)
 
             self.pointer += self.batch_size
 
@@ -117,6 +114,18 @@ class DataGenerator(object):
 
             # Transform data
             batch_feature = self.transform(batch_feature)
+            number_of_augmentations = np.random.choice([0, 1, 2, 3], 1, p=[0.6, 0.25, 0.1, 0.05])[0]
+            for i in range(number_of_augmentations):
+                random_pointer = np.random.randint(len(self.train_index_array))
+                new_batch_indexes = self.train_index_array[random_pointer: random_pointer + self.batch_size]
+                new_data_indexes = new_batch_indexes[:, None] + np.arange(self.training_crop_size)
+                new_batch_feature = self.train_features[:, new_data_indexes]
+                new_batch_event_matrix = self.train_event_matrix[new_data_indexes]
+                new_batch_feature = self.transform(new_batch_feature)
+
+                batch_feature += new_batch_feature
+                batch_event_matrix = np.maximum(batch_event_matrix,new_batch_event_matrix)
+            batch_feature /= (number_of_augmentations + 1)
 
             yield torch.from_numpy(batch_feature), torch.from_numpy(batch_event_matrix)
 
