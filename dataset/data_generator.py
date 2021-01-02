@@ -10,6 +10,7 @@ import config as cfg
 from dataset.download_tau_sed_2019 import download_foa_data, extract_foa_data
 from dataset.preprocess import preprocess_data
 from utils import human_format
+
 cfg_descriptor = f"SR-{human_format(cfg.working_sample_rate)}_WS-{human_format(cfg.window_size)}_HS-{human_format(cfg.hop_size)}"
 
 
@@ -22,7 +23,7 @@ def create_event_matrix(frames_num, start_times, end_times):
 
     for n in range(len(start_times)):
         start_frame = int(round(start_times[n] * cfg.frames_per_second))
-        end_frame = int(round(end_times[n] * cfg.frames_per_second)) + 1
+        end_frame = int(round(end_times[n]* cfg.frames_per_second)) + 1
 
         event_matrix[start_frame: end_frame] = 1
 
@@ -30,29 +31,38 @@ def create_event_matrix(frames_num, start_times, end_times):
 
 
 class DataGenerator(object):
-    def __init__(self, features_and_labels_dir, mean_std_file, batch_size, val_perc=0.1, seed=1234):
-        d = pickle.load(open(mean_std_file, 'rb'))
-        self.mean = d['mean']
-        self.std = d['std']
+    def __init__(self, features_and_labels_dir, mean_std_file, batch_size, val_descriptor, balance_classes=False, augment_data=False, seed=1234):
         self.batch_size = batch_size
         self.random_state = np.random.RandomState(seed)
-
-        self.training_crop_size = cfg.training_crop_size
-
-        # Split to train, test
-        feature_names = os.listdir(features_and_labels_dir)
-        shuffle(feature_names)
-        val_split = int(len(feature_names)*val_perc)
-        self.train_feature_names = feature_names[val_split:]
-        self.validate_feature_names = feature_names[:val_split]
-        print(f"Data generator initiated with {len(feature_names) - val_split} train and {val_split} val images")
+        self.augment_data = augment_data
+        self.train_crop_size = cfg.train_crop_size
 
         self.train_features_list = []
         self.train_event_matrix_list = []
-        self.train_index_array_list = []
-        frame_index = 0
+        self.train_index_with_event = []
+        self.train_index_empty = []
+
+        # Load data mean and std
+        d = pickle.load(open(mean_std_file, 'rb'))
+        self.mean = d['mean']
+        self.std = d['std']
+
+        # Split to train, test
+        feature_names = os.listdir(features_and_labels_dir)
+        if type(val_descriptor) == float:
+            shuffle(feature_names)
+            val_split = int(len(feature_names)*val_descriptor)
+            self.train_feature_names = feature_names[val_split:]
+            self.validate_feature_names = feature_names[:val_split]
+        else:
+           for name in feature_names:
+               if val_descriptor in name:
+                   self.validate_feature_names.append(name)
+               else:
+                   self.train_feature_names.append(name)
 
         # Load training feature and targets
+        frame_index = 0
         for feature_name in self.train_feature_names:
             data = pickle.load(open(os.path.join(features_and_labels_dir, feature_name), 'rb'))
             feature = data['features']
@@ -62,22 +72,34 @@ class DataGenerator(object):
             '''Number of frames of the log mel spectrogram of an audio 
             recording. May be different from file to file'''
 
-            index_array = np.arange(frame_index, frame_index + frames_num - self.training_crop_size)
+            possible_start_indices = np.arange(frame_index, frame_index + frames_num - self.train_crop_size)
             frame_index += frames_num
 
             # Append data
             self.train_features_list.append(feature)
             self.train_event_matrix_list.append(event_matrix)
-            self.train_index_array_list.append(index_array)
+            indices_with_event = np.zeros(possible_start_indices.shape, dtype=bool)
+            for i in np.where(event_matrix > 0)[0]:
+                indices_with_event[i - self.train_crop_size: i] = True
+            self.train_index_with_event += np.where(indices_with_event)[0].tolist()
+            self.train_index_empty += np.where(indices_with_event == False)[0].tolist()
 
         self.train_features = np.concatenate(self.train_features_list, axis=1)
         self.train_event_matrix = np.concatenate(self.train_event_matrix_list, axis=0)
-        self.train_index_array = np.concatenate(self.train_index_array_list, axis=0)
+
+        # Balance classes in train data
+        self.random_state.shuffle(self.train_index_with_event)
+        self.random_state.shuffle(self.train_index_empty)
+        if balance_classes:
+            size = min(len(self.train_index_with_event), len(self.train_index_empty))
+            self.train_index_with_event = self.train_index_with_event[:size]
+            self.train_index_empty = self.train_index_empty[:size]
+        self.train_start_indices = np.concatenate((self.train_index_empty, self.train_index_with_event))
+        self.random_state.shuffle(self.train_start_indices)
 
         # Load validation feature and targets
         self.validate_features_list = []
         self.validate_event_matrix_list = []
-
         for feature_name in self.validate_feature_names:
             data = pickle.load(open(os.path.join(features_and_labels_dir, feature_name), 'rb'))
             feature = data['features']
@@ -86,46 +108,52 @@ class DataGenerator(object):
             self.validate_features_list.append(feature)
             self.validate_event_matrix_list.append(event_matrix)
 
-        self.random_state.shuffle(self.train_index_array)
         self.pointer = 0
+
+        print(f"Data generator initiated with {len(self.train_feature_names)} train samples "
+              f"totaling {len(self.train_event_matrix) / cfg.frames_per_second:.1f} seconds "
+              f"and {len(self.validate_feature_names)} val samples "
+              f"totaling {len(np.concatenate(self.validate_event_matrix_list, axis=0)) / cfg.frames_per_second:.1f} seconds")
 
     def generate_train(self):
         '''
         Generate mini-batch data for training.
-        Samples an start indice and crops a self.training_crop_in_seconds long segment from the concatenated featues
+        Samples a start index and crops a self.train_crop_size long segment from the concatenated featues
         Returns:
           batch_data_dict: dict containing feature, event, elevation and azimuth
         '''
         while True:
             # Reset pointer
-            if self.pointer >= len(self.train_index_array):
+            if self.pointer > len(self.train_start_indices) - self.batch_size:
                 self.pointer = 0
-                self.random_state.shuffle(self.train_index_array)
+                self.random_state.shuffle(self.train_start_indices)
 
             # Get batch indexes
-            batch_indexes = self.train_index_array[self.pointer: self.pointer + self.batch_size]
+            batch_indexes = self.train_start_indices[self.pointer: self.pointer + self.batch_size]
 
-            data_indexes = batch_indexes[:, None] + np.arange(self.training_crop_size)
+            data_indexes = batch_indexes[:, None] + np.arange(self.train_crop_size)
 
             self.pointer += self.batch_size
 
             batch_feature = self.train_features[:, data_indexes]
             batch_event_matrix = self.train_event_matrix[data_indexes]
 
+            if self.augment_data:
+                number_of_augmentations = np.random.choice([0, 1, 2, 3], 1, p=[0.6, 0.25, 0.1, 0.05])[0]
+                for i in range(number_of_augmentations):
+                    random_pointer = np.random.randint(len(self.train_start_indices) - self.batch_size + 1)
+                    new_batch_indexes = self.train_start_indices[random_pointer: random_pointer + self.batch_size]
+                    new_data_indexes = new_batch_indexes[:, None] + np.arange(self.train_crop_size)
+                    new_batch_feature = self.train_features[:, new_data_indexes]
+                    new_batch_event_matrix = self.train_event_matrix[new_data_indexes]
+                    new_batch_feature = self.transform(new_batch_feature)
+
+                    batch_feature += new_batch_feature
+                    batch_event_matrix = np.maximum(batch_event_matrix,new_batch_event_matrix)
+                batch_feature /= (number_of_augmentations + 1)
+
             # Transform data
             batch_feature = self.transform(batch_feature)
-            number_of_augmentations = np.random.choice([0, 1, 2, 3], 1, p=[0.6, 0.25, 0.1, 0.05])[0]
-            for i in range(number_of_augmentations):
-                random_pointer = np.random.randint(len(self.train_index_array))
-                new_batch_indexes = self.train_index_array[random_pointer: random_pointer + self.batch_size]
-                new_data_indexes = new_batch_indexes[:, None] + np.arange(self.training_crop_size)
-                new_batch_feature = self.train_features[:, new_data_indexes]
-                new_batch_event_matrix = self.train_event_matrix[new_data_indexes]
-                new_batch_feature = self.transform(new_batch_feature)
-
-                batch_feature += new_batch_feature
-                batch_event_matrix = np.maximum(batch_event_matrix,new_batch_event_matrix)
-            batch_feature /= (number_of_augmentations + 1)
 
             yield torch.from_numpy(batch_feature), torch.from_numpy(batch_event_matrix)
 
@@ -177,34 +205,30 @@ class DataGenerator(object):
         return (x - self.mean) / self.std
 
 
-def get_film_clap_paths_and_labels(data_root):
+def get_film_clap_paths_and_labels(data_root, time_margin=0.1):
     """
     Parses the Film_clap raw data and collect audio file paths , start_times and end_times of claps
     """
-    time_margin = 0.5
     result = []
     num_claps = 0
     num_audio_files = 0
     for film_name in os.listdir(data_root):
-        dirpath = os.path.join(data_root, film_name)
-        csv_files = [os.path.join(dirpath, x) for x in os.listdir(dirpath) if x.endswith('.csv')]
-        if film_name == "Meron" or len(csv_files) != 1:
+        if film_name == 'Meron':
             continue
-        df = pd.read_csv(csv_files[0], sep=',')
-        clip_names = np.unique(df['Clip Name'])
-        done_names = set()
-        for name in clip_names:
-            if name not in done_names:
-                done_names.add(name)
-                soundfile_path = os.path.join(dirpath, name)
-                if os.path.exists(soundfile_path):
-                    relevant_df = df.loc[df['Clip Name'] == name]
-                    start_times = [row[1] - time_margin for i, row in relevant_df.iterrows()]
-                    end_times = [row[1] + time_margin for i, row in relevant_df.iterrows()]
-                    result += [(soundfile_path,start_times, end_times)]
-                    num_claps += len(start_times)
-                    num_audio_files += 1
-    print(f"Film clap dataset contains {num_audio_files} audio files with {num_claps} clap insidents")
+        dirpath = os.path.join(data_root, film_name)
+        meta_data_pickle = os.path.join(dirpath, f"{film_name}_parsed.pkl")
+
+        meta_data = pickle.load(open(meta_data_pickle, 'rb'))
+        for sounfile_name, evetnts_list in meta_data.items():
+            soundfile_path = os.path.join(dirpath, sounfile_name)
+            assert os.path.exists(soundfile_path), soundfile_path
+            start_times = [e - time_margin for e in evetnts_list]
+            end_times = [e + time_margin for e in evetnts_list]
+            name = f"{film_name}_{os.path.splitext(os.path.basename(soundfile_path))[0]}"
+            result += [(soundfile_path, start_times, end_times, name)]
+            num_claps += len(start_times)
+            num_audio_files += 1
+    print(f"Film clap dataset contains {num_audio_files} audio files with {num_claps} clap incidents")
     return result
 
 
@@ -223,12 +247,13 @@ def get_tau_sed_paths_and_labels(audio_dir, labels_data_dir):
                             if df['sound_event_recording'].values[i] in cfg.tau_sed_labels]
 
         start_times, end_times = df['start_time'].values[relevant_classes], df['end_time'].values[relevant_classes]
-        results += [(audio_path, start_times, end_times)]
+
+        results += [(audio_path, start_times, end_times, bare_name)]
 
     return results
 
 
-def get_tau_sed_generator(data_dir, batch_size, train_or_eval='eval', force_preprocess=False):
+def get_tau_sed_generator(data_dir, train_or_eval='eval', force_preprocess=False):
     """
     Download, extract and preprocess the tau sed datset
     force_preprocess: Force the preprocess phase to repeate: usefull in case you change the preprocess parameters
@@ -259,21 +284,23 @@ def get_tau_sed_generator(data_dir, batch_size, train_or_eval='eval', force_prep
         preprocess_data(audio_paths_and_labels, output_dir=features_and_labels_dir, output_mean_std_file=features_mean_std_file)
     else:
         print("Using existing mel features")
-    return DataGenerator(features_and_labels_dir, features_mean_std_file, batch_size)
+    return features_and_labels_dir, features_mean_std_file, "TAU"
 
 
-def get_film_clap_generator(data_dir, batch_size, force_preprocess=False):
+def get_film_clap_generator(data_dir, force_preprocess=False):
     """
     Preprocess and Creates a data generator for the film_clap dataset
     """
+    global cfg_descriptor
+    cfg_descriptor = f"{cfg_descriptor}_tm-{cfg.time_margin}"
     if not os.path.exists(data_dir):
         raise Exception("You should get you own dataset...")
     features_and_labels_dir = f"{data_dir}/processed_{cfg_descriptor}/features_and_labels"
     features_mean_std_file = f"{data_dir}/processed_{cfg_descriptor}/mel_features_mean_std.pkl"
     if not os.path.exists(features_and_labels_dir) or force_preprocess:
         print("preprocessing raw data")
-        audio_paths_and_labels = get_film_clap_paths_and_labels(os.path.join(data_dir, 'raw'))
+        audio_paths_and_labels = get_film_clap_paths_and_labels(os.path.join(data_dir, 'raw'), time_margin=cfg.time_margin)
         preprocess_data(audio_paths_and_labels, output_dir=features_and_labels_dir, output_mean_std_file=features_mean_std_file)
     else:
         print("Using existing mel features")
-    return DataGenerator(features_and_labels_dir, features_mean_std_file, batch_size)
+    return features_and_labels_dir, features_mean_std_file, "FlimClap"

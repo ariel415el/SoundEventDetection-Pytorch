@@ -2,6 +2,6 @@
 __pycache__/
 .idea/
 /outputs/
-/inference_outputs/
+/training_dir/
 /processed_datasets/
 *.pth

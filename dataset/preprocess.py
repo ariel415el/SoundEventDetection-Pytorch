@@ -137,15 +137,14 @@ def preprocess_data(audio_path_and_labels, output_dir, output_mean_std_file):
 
     all_features = []
 
-    for (audio_path, start_times, end_times) in tqdm(audio_path_and_labels):
-        bare_name = os.path.basename(os.path.splitext(audio_path)[0])
+    for (audio_path, start_times, end_times, save_tag) in tqdm(audio_path_and_labels):
 
         multichannel_audio, _ = read_multichannel_audio(audio_path=audio_path, target_fs=cfg.working_sample_rate)
         feature = feature_extractor.transform_multichannel(multichannel_audio)
         all_features.append(feature)
 
         if len(start_times) > 0:
-            output_path = os.path.join(output_dir, bare_name + "_mel_features_and_labels.pkl")
+            output_path = os.path.join(output_dir, save_tag + "_mel_features_and_labels.pkl")
             with open(output_path, 'wb') as f:
                 pickle.dump({'features': feature, 'start_times': start_times, 'end_times': end_times},
                             f)
@@ -168,7 +167,8 @@ def analyze_data_sample(audio_path, start_times, end_times, feature_extractor, p
     feature = feature_extractor.transform_singlechannel(singlechannel_audio)
 
     event_matrix = create_event_matrix(feature.shape[0], start_times, end_times)
-    plot_debug_image(feature, target=event_matrix, plot_path=plot_path)
+    file_name = f"{os.path.basename(os.path.dirname(audio_path))}_{os.path.splitext(os.path.basename(audio_path))[0]}"
+    plot_debug_image(feature, target=event_matrix, plot_path=plot_path, file_name=file_name)
 
     signal_time = singlechannel_audio.shape[0]/cfg.working_sample_rate
     FPS = cfg.working_sample_rate / cfg.hop_size

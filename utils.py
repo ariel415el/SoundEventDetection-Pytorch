@@ -67,24 +67,24 @@ class ProgressPlotter:
     def report_train_loss(self, loss):
         self.train_buffer.append(loss)
 
-    def report_validation_metrics(self, val_losses, recal_sets, precision_sets):
+    def report_validation_metrics(self, val_losses, recal_sets, precision_sets, iteration):
+        self.iterations.append(iteration)
+
         self.val_avgs.append(np.mean(val_losses, axis=0))
         self.last_recal_vals = np.mean(recal_sets, axis=0)
         self.last_precision_vals = np.mean(precision_sets, axis=0)
-        self.fh_score_avgs.append((self.last_recal_vals[0] + self.last_precision_vals[0]) / 2)
-        f1_scores = (2 * self.last_recal_vals * self.last_precision_vals) / (self.last_precision_vals + self.last_recal_vals)
-        f5_scores = ((1+5**2) * self.last_recal_vals * self.last_precision_vals) / (5**2 * self.last_precision_vals + self.last_recal_vals)
-        f10_scores = ((1+10**2) * self.last_recal_vals * self.last_precision_vals) / (10**2 * self.last_precision_vals + self.last_recal_vals)
+        self.fh_score_avgs.append(self.last_precision_vals[0])
+        f1_scores = (2 * self.last_precision_vals * self.last_recal_vals) / (self.last_recal_vals + self.last_precision_vals + 1e-9)
+        f5_scores = ((1+5**2) * self.last_precision_vals * self.last_recal_vals) / (5**2 * self.last_recal_vals + self.last_precision_vals + 1e-9)
+        f10_scores = ((1+10**2) * self.last_precision_vals * self.last_recal_vals) / (10**2 * self.last_recal_vals + self.last_precision_vals + 1e-9)
         self.f1_score_avgs.append(np.max(f1_scores))
         self.f5_score_avgs.append(np.max(f5_scores))
         self.f10_score_avgs.append(np.max(f10_scores))
 
-
-    def plot(self, outputs_dir, iteration):
-        self.iterations.append(iteration)
+    def plot(self, outputs_dir):
         self.plot_train_eval_losses(os.path.join(outputs_dir, 'Training_loss.png'))
         self.plot_max_fscores(os.path.join(outputs_dir, 'f1_scores.png'))
-        self.plot_roc(os.path.join(outputs_dir, 'ROC_plots', f"Roc-iteration-{iteration}.png"))
+        self.plot_roc(os.path.join(outputs_dir, 'ROC_plots', f"Roc-iteration-{self.iterations[-1]}.png"))
 
     def plot_train_eval_losses(self, plot_path):
         self.train_avgs += [np.mean(self.train_buffer)]
@@ -92,7 +92,8 @@ class ProgressPlotter:
 
         plt.plot(np.arange(len(self.train_avgs)), self.train_avgs, label='train', color='blue')
         plt.plot(np.arange(len(self.val_avgs)), self.val_avgs, label='validation', color='orange')
-        plt.xticks(range(len(self.iterations)), self.iterations)
+        x_indices = np.arange(0, len(self.iterations), max(len(self.iterations) // 5, 1))
+        plt.xticks(x_indices, np.array(self.iterations)[x_indices])
         plt.xlabel("train step")
         plt.ylabel("loss")
         plt.legend()
@@ -103,7 +104,7 @@ class ProgressPlotter:
         plt.plot(np.arange(len(self.f1_score_avgs)), self.f1_score_avgs, color='blue', label='f1 scroe')
         plt.plot(np.arange(len(self.f5_score_avgs)), self.f5_score_avgs, color='green', label='f5 scroe')
         plt.plot(np.arange(len(self.f10_score_avgs)), self.f10_score_avgs, color='orange', label='f10 scroe')
-        plt.plot(np.arange(len(self.fh_score_avgs)), self.fh_score_avgs, color='red', label='Fscore in highest recall')
+        plt.plot(np.arange(len(self.fh_score_avgs)), self.fh_score_avgs, color='red', label='Precision in highest recall')
         plt.title("F scores")
         plt.xticks(range(len(self.iterations)), self.iterations)
         plt.legend()
@@ -122,7 +123,7 @@ class ProgressPlotter:
         plt.clf()
 
 
-def plot_debug_image(mel_features, output=None, target=None, plot_path=None):
+def plot_debug_image(mel_features, output=None, target=None, file_name=None, plot_path=None):
     os.makedirs(os.path.dirname(plot_path), exist_ok=True)
     num_plots = 1
     if output is not None:
@@ -131,9 +132,10 @@ def plot_debug_image(mel_features, output=None, target=None, plot_path=None):
         num_plots += 1
 
     fig, axs = plt.subplots(num_plots, 1, figsize=(15, 10))
-
+    plt.subplots_adjust(hspace=1)
     frames_num = mel_features.shape[0]
-
+    if file_name:
+        fig.suptitle(f"Sample name: {file_name}")
     axs[0].matshow(mel_features.T, origin='lower', aspect='auto', cmap='jet')
     axs[0].set_title('Log mel spectrogram', color='r')
 
@@ -163,7 +165,7 @@ def plot_debug_image(mel_features, output=None, target=None, plot_path=None):
             axs[i].set_yticklabels(tau_sed_labels)
             axs[i].yaxis.grid(color='w', linestyle='solid', linewidth=0.2)
 
-    # fig.tight_layout()
+    fig.tight_layout()
     plt.savefig(plot_path)
     plt.close(fig)
 
