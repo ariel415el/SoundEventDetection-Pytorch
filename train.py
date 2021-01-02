@@ -12,9 +12,10 @@ import numpy as np
 def eval(model, data_generator, outputs_dir, iteration, device, limit_val_samples=32):
     losses = []
     recal_sets, precision_sets, max_f1_vals = [], [], []
-    outputs = []
-    targets = []
-    inputs = []
+    debug_outputs = []
+    debug_targets = []
+    debug_inputs = []
+    debug_file_names = []
     for idx, (mel_features, target, file_name) in enumerate(data_generator.generate_validate('validate', max_validate_num=limit_val_samples)):
     # for idx, (mel_features, target) in enumerate(data_generator.generate_train()):
         model.eval()
@@ -33,14 +34,14 @@ def eval(model, data_generator, outputs_dir, iteration, device, limit_val_sample
         recal_sets.append(recal_vals)
         precision_sets.append(precision_vals)
 
-        outputs.append(output)
-        targets.append(target)
-        inputs.append(mel_features)
+        debug_outputs.append(output)
+        debug_targets.append(target)
+        debug_inputs.append(mel_features)
+        debug_file_names.append(file_name)
 
     for (name, idx) in [("best", np.argmin(losses)), ("worst", np.argmax(losses))]:
-        mel_features, output, target = inputs[idx], outputs[idx], targets[idx]
-        unormelized_mel = mel_features[0][0] * data_generator.std + data_generator.mean
-        plot_debug_image(unormelized_mel, output=output[0], target=target[0], file_name=file_name + f" loss {losses[idx]:.2f}",
+        unormelized_mel = debug_inputs[idx][0][0] * data_generator.std + data_generator.mean
+        plot_debug_image(unormelized_mel, output=debug_outputs[idx][0], target=debug_targets[idx][0], file_name=debug_file_names[idx] + f" loss {losses[idx]:.2f}",
                          plot_path=os.path.join(outputs_dir, 'images', f"Iter-{iteration}_{name}.png"))
 
     return losses, recal_sets, precision_sets
@@ -78,7 +79,7 @@ def train(model, data_generator, num_steps, lr, log_freq, outputs_dir, device):
 
         if iterations % log_freq == 0:
             im_sec = iterations * data_generator.batch_size / (time() - training_start_time)
-            tqdm_bar.set_description(f"step: {iterations}, loss: {loss.item():.2f}, im/sec: {im_sec:.1f}")
+            tqdm_bar.set_description(f"step: {iterations}, loss: {loss.item():.2f}, im/sec: {im_sec:.1f}, lr: {optimizer.param_groups[0]['lr']:.8f}")
 
             val_losses, recal_sets, precision_sets = eval(model, data_generator, outputs_dir, iteration=iterations, device=device)
 
@@ -103,8 +104,8 @@ if __name__ == '__main__':
     parser.add_argument('--dataset_dir', type=str, default='../data', help='Directory of dataset.')
     parser.add_argument('--outputs_root', type=str, default='training_dir')
     parser.add_argument('--ckpt', type=str, default='')
-    parser.add_argument('--batch_size', type=int, default=32)
-    parser.add_argument('--lr', type=float, default=0.00001)
+    parser.add_argument('--batch_size', type=int, default=8)
+    parser.add_argument('--lr', type=float, default=0.000001)
     parser.add_argument('--val_perc', type=float, default=0.15)
     parser.add_argument('--num_train_steps', type=int, default=5000)
     parser.add_argument('--log_freq', type=int, default=100)
