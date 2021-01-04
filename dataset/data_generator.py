@@ -139,18 +139,8 @@ class DataGenerator(object):
             batch_event_matrix = self.train_event_matrix[data_indexes]
 
             if self.augment_data:
-                number_of_augmentations = np.random.choice([0, 1, 2, 3], 1, p=[0.6, 0.25, 0.1, 0.05])[0]
-                for i in range(number_of_augmentations):
-                    random_pointer = np.random.randint(len(self.train_start_indices) - self.batch_size + 1)
-                    new_batch_indexes = self.train_start_indices[random_pointer: random_pointer + self.batch_size]
-                    new_data_indexes = new_batch_indexes[:, None] + np.arange(self.train_crop_size)
-                    new_batch_feature = self.train_features[:, new_data_indexes]
-                    new_batch_event_matrix = self.train_event_matrix[new_data_indexes]
-                    new_batch_feature = self.transform(new_batch_feature)
-
-                    batch_feature += new_batch_feature
-                    batch_event_matrix = np.maximum(batch_event_matrix,new_batch_event_matrix)
-                batch_feature /= (number_of_augmentations + 1)
+                batch_feature, batch_event_matrix = self.augment_batch_mix_samples(batch_feature, batch_event_matrix)
+                batch_feature, batch_event_matrix = self.augment_batch_add_noise(batch_feature, batch_event_matrix)
 
             # Transform data
             batch_feature = self.transform(batch_feature)
@@ -205,6 +195,31 @@ class DataGenerator(object):
         return (x - self.mean) / self.std
 
 
+    def augment_batch_add_noise(self, batch_feature, batch_event_matrix):
+        r = np.random.rand()
+        if r > 0.2:
+            batch_feature += np.random.normal(0, 0.01, size=batch_feature.shape)
+        return batch_feature, batch_event_matrix
+
+    def augment_batch_mix_samples(self, batch_feature, batch_event_matrix):
+        """
+        Augment a samples by mixing its features and labesl with other train samples
+        """
+        number_of_augmentations = np.random.choice([0, 1, 2, 3], 1, p=[0.6, 0.25, 0.1, 0.05])[0]
+        for i in range(number_of_augmentations):
+            random_pointer = np.random.randint(len(self.train_start_indices) - self.batch_size + 1)
+            new_batch_indexes = self.train_start_indices[random_pointer: random_pointer + self.batch_size]
+            new_data_indexes = new_batch_indexes[:, None] + np.arange(self.train_crop_size)
+            new_batch_feature = self.train_features[:, new_data_indexes]
+            new_batch_event_matrix = self.train_event_matrix[new_data_indexes]
+            new_batch_feature = self.transform(new_batch_feature)
+
+            batch_feature += new_batch_feature
+            batch_event_matrix = np.maximum(batch_event_matrix, new_batch_event_matrix)
+        batch_feature /= (number_of_augmentations + 1)
+
+        return batch_feature, batch_event_matrix
+
 def get_film_clap_paths_and_labels(data_root, time_margin=0.1):
     """
     Parses the Film_clap raw data and collect audio file paths , start_times and end_times of claps
@@ -212,9 +227,8 @@ def get_film_clap_paths_and_labels(data_root, time_margin=0.1):
     result = []
     num_claps = 0
     num_audio_files = 0
+    dataset_sizes = 0
     for film_name in os.listdir(data_root):
-        if film_name == 'Meron':
-            continue
         dirpath = os.path.join(data_root, film_name)
         meta_data_pickle = os.path.join(dirpath, f"{film_name}_parsed.pkl")
 
@@ -228,6 +242,8 @@ def get_film_clap_paths_and_labels(data_root, time_margin=0.1):
             result += [(soundfile_path, start_times, end_times, name)]
             num_claps += len(start_times)
             num_audio_files += 1
+        print(f"Dataset : {film_name} has {len(result) - dataset_sizes} samples")
+        dataset_sizes = len(result)
     print(f"Film clap dataset contains {num_audio_files} audio files with {num_claps} clap incidents")
     return result
 
@@ -258,6 +274,8 @@ def get_tau_sed_generator(data_dir, train_or_eval='eval', force_preprocess=False
     Download, extract and preprocess the tau sed datset
     force_preprocess: Force the preprocess phase to repeate: usefull in case you change the preprocess parameters
     """
+    global cfg_descriptor
+    cfg_descriptor = f"{cfg_descriptor}_C-{'-'.join(cfg.tau_sed_labels)}"
     ambisonic_2019_data_dir = f"{data_dir}/Tau_sound_events_2019"
     zipped_data_dir = os.path.join(ambisonic_2019_data_dir, 'zipped')
     extracted_data_dir= os.path.join(ambisonic_2019_data_dir, 'raw')

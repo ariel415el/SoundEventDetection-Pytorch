@@ -19,8 +19,8 @@ if __name__ == '__main__':
     device = torch.device("cuda:0" if torch.cuda.is_available() and args.device == "cuda:0" else "cpu")
 
     model = Cnn_AvgPooling(cfg.classes_num).to(device)
-    checkpoint = torch.load(args.ckpt, map_location=device)
-    model.load_state_dict(checkpoint['model'])
+    # checkpoint = torch.load(args.ckpt, map_location=device)
+    # model.load_state_dict(checkpoint['model'])
 
     print("Preprocessing audio file..")
     feature_extractor = LogMelExtractor(
@@ -41,5 +41,5 @@ if __name__ == '__main__':
     output_event = output_event.cpu()
     os.makedirs(args.outputs_dir, exist_ok=True)
 
-    plot_debug_image(mel_features, output=output_event, plot_path=os.path.join(args.outputs_dir, f"{os.path.splitext(os.path.basename(args.audio_file))[0]}.png"))
+    plot_debug_image(mel_features[0], output=output_event[0], plot_path=os.path.join(args.outputs_dir, f"{os.path.splitext(os.path.basename(args.audio_file))[0]}.png"))
 

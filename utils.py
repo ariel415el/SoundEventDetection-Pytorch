@@ -132,12 +132,14 @@ def plot_debug_image(mel_features, output=None, target=None, file_name=None, plo
     if target is not None:
         num_plots += 1
 
-    fig, axs = plt.subplots(num_plots, 1, figsize=(15, 10))
+    fig, axs = plt.subplots(num_plots, 1, figsize=(20, 15))
     plt.subplots_adjust(hspace=1)
     frames_num = mel_features.shape[0]
     if file_name:
         fig.suptitle(f"Sample name: {file_name}")
-    axs[0].matshow(mel_features.T, origin='lower', aspect='auto', cmap='jet')
+    im = axs[0].matshow(mel_features.T, origin='lower', aspect='auto', cmap='jet')
+    fig.colorbar(im, ax=axs[0])
+
     axs[0].set_title('Log mel spectrogram', color='r')
 
     axs[0].set_ylabel('Mel bins')
@@ -146,11 +148,13 @@ def plot_debug_image(mel_features, output=None, target=None, file_name=None, plo
     axs[0].set_yticklabels([0, mel_bins])
 
     if output is not None:
-        axs[1].matshow(output.T, origin='lower', aspect='auto', cmap='jet')
+        im = axs[1].matshow(output.T, origin='lower', aspect='auto', cmap='jet', vmin=0, vmax=1)
+        fig.colorbar(im, ax=axs[1])
         axs[1].set_title("Predicted sound events", color='b')
     if target is not None:
         idx = 1 if output is None else 2
-        axs[idx].matshow(target.T, origin='lower', aspect='auto', cmap='jet')
+        im = axs[idx].matshow(target.T, origin='lower', aspect='auto', cmap='jet', vmin=0, vmax=1)
+        fig.colorbar(im, ax=axs[idx])
         axs[idx].set_title(f"Reference sound events, marked frames: {int(target.sum())}", color='r')
 
     tick_hop = frames_num // 8
@@ -163,7 +167,6 @@ def plot_debug_image(mel_features, output=None, target=None, file_name=None, plo
         axs[i].xaxis.set_ticks_position('bottom')
         if i > 0:
             axs[i].set_yticks(np.arange(classes_num))
-            axs[i].set_yticklabels(tau_sed_labels)
             axs[i].yaxis.grid(color='w', linestyle='solid', linewidth=0.2)
 
     fig.tight_layout()

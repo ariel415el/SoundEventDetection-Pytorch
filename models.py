@@ -137,4 +137,5 @@ class Cnn_AvgPooling(nn.Module):
         num_frames = h
         frame_duration = hop_size / working_sample_rate
         print(f"\tinterpolate({2**(self.num_pools)})-> ({b}, {h}, {classes_num})")
-        print(f"\tModel has {num_outputs} outputs before interpolation, each stands for {2**(self.num_pools)} frames or {frame_duration:.2f}s")
+        print(f"\tModel has {num_outputs} outputs before interpolation, each stands for {2**(self.num_pools)} frames or"
+              f" {2**(self.num_pools)*frame_duration:.2f}s")

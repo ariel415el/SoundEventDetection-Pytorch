@@ -5,7 +5,7 @@ from torch import optim
 from utils import binary_crossentropy, ProgressPlotter, calculate_metrics, plot_debug_image
 from models import *
 import config as cfg
-from dataset.data_generator import get_film_clap_generator, get_tau_sed_generator, DataGenerator
+from dataset.data_generator import get_film_clap_generator, get_tau_sed_generator, DataGenerator, cfg_descriptor
 from time import time
 import numpy as np
 
@@ -75,7 +75,7 @@ def train(model, data_generator, num_steps, lr, log_freq, outputs_dir, device):
 
         if iterations % lr_decay_freq == 0:
             for param_group in optimizer.param_groups:
-                param_group['lr'] *= 0.95
+                param_group['lr'] *= 0.995
 
         if iterations % log_freq == 0:
             im_sec = iterations * data_generator.batch_size / (time() - training_start_time)
@@ -104,11 +104,11 @@ if __name__ == '__main__':
     parser.add_argument('--dataset_dir', type=str, default='../data', help='Directory of dataset.')
     parser.add_argument('--outputs_root', type=str, default='training_dir')
     parser.add_argument('--ckpt', type=str, default='')
-    parser.add_argument('--batch_size', type=int, default=8)
-    parser.add_argument('--lr', type=float, default=0.000001)
+    parser.add_argument('--batch_size', type=int, default=16)
+    parser.add_argument('--lr', type=float, default=0.000003)
     parser.add_argument('--val_perc', type=float, default=0.15)
     parser.add_argument('--num_train_steps', type=int, default=5000)
-    parser.add_argument('--log_freq', type=int, default=100)
+    parser.add_argument('--log_freq', type=int, default=500)
     parser.add_argument('--device', default='cuda:0', type=str)
     parser.add_argument('--force_preprocess', action='store_true', default=False)
     parser.add_argument('--augment_data', action='store_true', default=False)
@@ -134,7 +134,7 @@ if __name__ == '__main__':
                                    balance_classes=args.balance_classes,
                                    val_descriptor=args.val_perc)
 
-    train_name = f"{dataset_name}_b{args.batch_size}_lr{args.lr}"
+    train_name = f"{dataset_name}_cfg({cfg_descriptor})_b{args.batch_size}_lr{args.lr}"
     if args.balance_classes:
         train_name += "_BC"
     if args.augment_data:

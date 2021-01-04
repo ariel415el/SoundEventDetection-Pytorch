@@ -1,6 +1,6 @@
 import os
 import pickle
-
+import random
 import librosa
 import numpy as np
 import soundfile
@@ -137,14 +137,14 @@ def preprocess_data(audio_path_and_labels, output_dir, output_mean_std_file):
 
     all_features = []
 
-    for (audio_path, start_times, end_times, save_tag) in tqdm(audio_path_and_labels):
+    for (audio_path, start_times, end_times, audio_name) in tqdm(audio_path_and_labels):
 
         multichannel_audio, _ = read_multichannel_audio(audio_path=audio_path, target_fs=cfg.working_sample_rate)
         feature = feature_extractor.transform_multichannel(multichannel_audio)
         all_features.append(feature)
 
         if len(start_times) > 0:
-            output_path = os.path.join(output_dir, save_tag + "_mel_features_and_labels.pkl")
+            output_path = os.path.join(output_dir, audio_name + "_mel_features_and_labels.pkl")
             with open(output_path, 'wb') as f:
                 pickle.dump({'features': feature, 'start_times': start_times, 'end_times': end_times},
                             f)
@@ -155,10 +155,12 @@ def preprocess_data(audio_path_and_labels, output_dir, output_mean_std_file):
         pickle.dump({'mean': mean, 'std': std}, f)
 
     # Visualize single data sample
-    analyze_data_sample(audio_path, start_times, end_times, feature_extractor, os.path.join(os.path.dirname(output_mean_std_file), "data_sample.png"))
+    (audio_path, start_times, end_times, audio_name) = random.choice(audio_path_and_labels)
+    analyze_data_sample(audio_path, start_times, end_times, audio_name,
+                        feature_extractor, os.path.join(os.path.dirname(output_mean_std_file), "data_sample.png"))
 
 
-def analyze_data_sample(audio_path, start_times, end_times, feature_extractor, plot_path):
+def analyze_data_sample(audio_path, start_times, end_times, audio_name, feature_extractor, plot_path):
     from dataset.data_generator import create_event_matrix
     org_multichannel_audio, org_sample_rate = soundfile.read(audio_path)
 
@@ -172,13 +174,13 @@ def analyze_data_sample(audio_path, start_times, end_times, feature_extractor, p
 
     signal_time = singlechannel_audio.shape[0]/cfg.working_sample_rate
     FPS = cfg.working_sample_rate / cfg.hop_size
-    print("Data sample analysis:")
+    print(f"Data sample analysis: {audio_name}")
     print(f"\tOriginal audio: {org_multichannel_audio.shape} sample_rate={org_sample_rate}")
     print(f"\tsingle channel audio: {singlechannel_audio.shape}, sample_rate={cfg.working_sample_rate}")
     print(f"\tSignal time is (num_samples/sample_rate)={signal_time:.1f}s")
     print(f"\tSIFT FPS is (sample_rate/hop_size)={FPS}")
     print(f"\tTotal number of frames is (FPS*signal_time)={FPS*signal_time}")
-    print(f"\tEach frame covers {cfg.window_size} samples or {cfg.window_size/cfg.working_sample_rate:.1f} seconds "
+    print(f"\tEach frame covers {cfg.window_size} samples or {cfg.window_size/cfg.working_sample_rate:.3f} seconds "
           f"and allow i.e ({cfg.window_size}//2+1)={cfg.window_size // 2 + 1} frequency bins")
     print(f"\tFeatures shape: {feature.shape}")
 
