@@ -11,7 +11,7 @@ from dataset.download_tau_sed_2019 import download_foa_data, extract_foa_data
 from dataset.preprocess import preprocess_data
 from utils import human_format
 
-cfg_descriptor = f"SR-{human_format(cfg.working_sample_rate)}_WS-{human_format(cfg.window_size)}_HS-{human_format(cfg.hop_size)}"
+cfg_descriptor = f"SaR-{human_format(cfg.working_sample_rate)}_FrS-{human_format(cfg.frame_size)}_HoS-{human_format(cfg.hop_size)}"
 
 
 def create_event_matrix(frames_num, start_times, end_times):

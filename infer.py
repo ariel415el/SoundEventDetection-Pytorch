@@ -25,7 +25,8 @@ if __name__ == '__main__':
     print("Preprocessing audio file..")
     feature_extractor = LogMelExtractor(
         sample_rate=cfg.working_sample_rate,
-        window_size=cfg.window_size,
+        nfft=cfg.NFFT,
+        window_size=cfg.frame_size,
         hop_size=cfg.hop_size,
         mel_bins=cfg.mel_bins,
         fmin=cfg.mel_min_freq,

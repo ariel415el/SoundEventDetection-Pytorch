@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from config import audio_channels, working_sample_rate, mel_bins, hop_size, classes_num
+from utils import count_parameters, human_format
 
 DEFAULT_CHANNEL_AND_POOL=[(64,2), (128,2), (256,2), (512,1)]
 
@@ -139,3 +140,4 @@ class Cnn_AvgPooling(nn.Module):
         print(f"\tinterpolate({2**(self.num_pools)})-> ({b}, {h}, {classes_num})")
         print(f"\tModel has {num_outputs} outputs before interpolation, each stands for {2**(self.num_pools)} frames or"
               f" {2**(self.num_pools)*frame_duration:.2f}s")
+        print(f"\tModel has {human_format(count_parameters(self))} parameters")

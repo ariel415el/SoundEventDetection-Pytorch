@@ -11,25 +11,19 @@ from utils import plot_debug_image
 
 
 class LogMelExtractor(object):
-    def __init__(self, sample_rate, window_size, hop_size, mel_bins, fmin, fmax):
-        '''Log mel feature extractor.
-
-        Args:
-          sample_rate: int
-          window_size: int
-          hop_size: int
-          mel_bins: int
-          fmin: int, minimum frequency of mel filter banks
-          fmax: int, maximum frequency of mel filter banks
+    def __init__(self, sample_rate, nfft, window_size, hop_size, mel_bins, fmin, fmax):
+        '''
+        Log mel feature extractor.
         '''
 
+        self.nfft = nfft
         self.window_size = window_size
         self.hop_size = hop_size
         self.window_func = np.hanning(window_size)
 
         self.melW = librosa.filters.mel(
             sr=sample_rate,
-            n_fft=window_size,
+            n_fft=nfft,
             n_mels=mel_bins,
             fmin=fmin,
             fmax=fmax).T
@@ -61,16 +55,13 @@ class LogMelExtractor(object):
           feature: (frames_num, freq_bins)
         '''
 
-        window_size = self.window_size
-        hop_size = self.hop_size
-        window_func = self.window_func
-
         # Compute short-time Fourier transform
         stft_matrix = librosa.core.stft(
             y=audio,
-            n_fft=window_size,
-            hop_length=hop_size,
-            window=window_func,
+            n_fft=self.nfft,
+            win_length=self.window_size,
+            hop_length=self.hop_size,
+            window=self.window_func,
             center=True,
             dtype=np.complex64,
             pad_mode='reflect').T
@@ -79,7 +70,7 @@ class LogMelExtractor(object):
         # Mel spectrogram
         mel_spectrogram = np.dot(np.abs(stft_matrix) ** 2, self.melW)
 
-        # Log mel spectrogram
+        # Log mel spectrogram ( in decibels )
         logmel_spectrogram = librosa.core.power_to_db(
             mel_spectrogram, ref=1.0, amin=1e-10,
             top_db=None)
@@ -129,7 +120,8 @@ def preprocess_data(audio_path_and_labels, output_dir, output_mean_std_file):
 
     feature_extractor = LogMelExtractor(
         sample_rate=cfg.working_sample_rate,
-        window_size=cfg.window_size,
+        nfft=cfg.NFFT,
+        window_size=cfg.frame_size,
         hop_size=cfg.hop_size,
         mel_bins=cfg.mel_bins,
         fmin=cfg.mel_min_freq,
@@ -179,9 +171,9 @@ def analyze_data_sample(audio_path, start_times, end_times, audio_name, feature_
     print(f"\tsingle channel audio: {singlechannel_audio.shape}, sample_rate={cfg.working_sample_rate}")
     print(f"\tSignal time is (num_samples/sample_rate)={signal_time:.1f}s")
     print(f"\tSIFT FPS is (sample_rate/hop_size)={FPS}")
-    print(f"\tTotal number of frames is (FPS*signal_time)={FPS*signal_time}")
-    print(f"\tEach frame covers {cfg.window_size} samples or {cfg.window_size/cfg.working_sample_rate:.3f} seconds "
-          f"and allow i.e ({cfg.window_size}//2+1)={cfg.window_size // 2 + 1} frequency bins")
+    print(f"\tTotal number of frames is (FPS*signal_time)={FPS*signal_time:.1f}")
+    print(f"\tEach frame covers {cfg.frame_size} samples or {cfg.frame_size / cfg.working_sample_rate:.3f} seconds "
+          f"padded into {cfg.NFFT} samples and allow ({cfg.NFFT}//2+1)={cfg.NFFT // 2 + 1} frequency bins")
     print(f"\tFeatures shape: {feature.shape}")
 
 

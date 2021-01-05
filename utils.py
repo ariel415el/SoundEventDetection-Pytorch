@@ -173,6 +173,7 @@ def plot_debug_image(mel_features, output=None, target=None, file_name=None, plo
     plt.savefig(plot_path)
     plt.close(fig)
 
+
 def human_format(num):
     """
     :param num: A number to print in a nice readable way.
@@ -185,3 +186,6 @@ def human_format(num):
         num /= 1000.0
 
     return '%.1f%s' % (num, ['', 'K', 'M', 'G', 'T', 'P'][magnitude])  # add more suffices if you need them
+
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
