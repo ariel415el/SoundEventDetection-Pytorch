@@ -2,22 +2,25 @@ import os
 import argparse
 from tqdm import tqdm
 from torch import optim
-from utils import binary_crossentropy, ProgressPlotter, calculate_metrics, plot_debug_image
+from utils import binary_crossentropy, ProgressPlotter, calculate_metrics, plot_debug_image, f_score
 from models import *
 import config as cfg
 from dataset.data_generator import get_film_clap_generator, get_tau_sed_generator, DataGenerator, cfg_descriptor
 from time import time
 import numpy as np
 
-def eval(model, data_generator, outputs_dir, iteration, device, limit_val_samples=32):
+
+def eval(model, data_generator, outputs_dir, iteration, device, limit_val_samples=None):
     losses = []
-    recal_sets, precision_sets, max_f1_vals = [], [], []
+    recal_sets, precision_sets, APs = [], [], []
     debug_outputs = []
     debug_targets = []
     debug_inputs = []
     debug_file_names = []
-    for idx, (mel_features, target, file_name) in enumerate(data_generator.generate_validate('validate', max_validate_num=limit_val_samples)):
-    # for idx, (mel_features, target) in enumerate(data_generator.generate_train()):
+    for idx, (mel_features, target, file_name) in enumerate(
+            data_generator.generate_validate('validate', max_validate_num=limit_val_samples)):
+        # for idx, (mel_features, target) in enumerate(data_generator.generate_train()):
+        #     file_name = "NA"
         model.eval()
         with torch.no_grad():
             model.eval()
@@ -28,23 +31,34 @@ def eval(model, data_generator, outputs_dir, iteration, device, limit_val_sample
         output = output.numpy()
         target = target.numpy()
 
-        recal_vals, precision_vals = calculate_metrics(output, target)
+        recal_vals, precision_vals, AP = calculate_metrics(output, target)
 
         losses.append(loss.item())
         recal_sets.append(recal_vals)
         precision_sets.append(precision_vals)
+        APs.append(AP)
 
         debug_outputs.append(output)
         debug_targets.append(target)
         debug_inputs.append(mel_features)
         debug_file_names.append(file_name)
 
-    for (name, idx) in [("best", np.argmin(losses)), ("worst", np.argmax(losses))]:
-        unormelized_mel = debug_inputs[idx][0][0] * data_generator.std + data_generator.mean
-        plot_debug_image(unormelized_mel, output=debug_outputs[idx][0], target=debug_targets[idx][0], file_name=debug_file_names[idx] + f" loss {losses[idx]:.2f}",
-                         plot_path=os.path.join(outputs_dir, 'images', f"Iter-{iteration}_{name}.png"))
+    # plot input, outputs and targets of worst and best samples by each metric
+    for (metric_name, values, named_indices) in [
+                                        ("loss", losses, [('worst', -1), ('2-worst', -2), ('3-worst', -3), ('best', 0)]),
+                                        ('AP', APs, [('worst', 0), ('best', -1)])]:
+        indices = np.argsort(values)
+        for (name, idx) in named_indices:
+            val_sample_idx = indices[idx]
+            unormelized_mel = debug_inputs[val_sample_idx][0][0] * data_generator.std + data_generator.mean
+            plot_debug_image(unormelized_mel, output=debug_outputs[val_sample_idx][0],
+                             target=debug_targets[val_sample_idx][0],
+                             file_name=debug_file_names[
+                                           val_sample_idx] + f" {metric_name} {values[val_sample_idx]:.2f}",
+                             plot_path=os.path.join(outputs_dir, 'images', f"Iter-{iteration}",
+                                                    f"{metric_name}-{name}.png"))
 
-    return losses, recal_sets, precision_sets
+    return losses, recal_sets, precision_sets, APs
 
 
 def train(model, data_generator, num_steps, lr, log_freq, outputs_dir, device):
@@ -71,19 +85,21 @@ def train(model, data_generator, num_steps, lr, log_freq, outputs_dir, device):
         optimizer.step()
 
         plotter.report_train_loss(loss.item())
-        iterations+=1
+        iterations += 1
 
         if iterations % lr_decay_freq == 0:
             for param_group in optimizer.param_groups:
-                param_group['lr'] *= 0.995
+                param_group['lr'] *= 0.99
 
         if iterations % log_freq == 0:
             im_sec = iterations * data_generator.batch_size / (time() - training_start_time)
-            tqdm_bar.set_description(f"step: {iterations}, loss: {loss.item():.2f}, im/sec: {im_sec:.1f}, lr: {optimizer.param_groups[0]['lr']:.8f}")
+            tqdm_bar.set_description(
+                f"step: {iterations}, loss: {loss.item():.2f}, im/sec: {im_sec:.1f}, lr: {optimizer.param_groups[0]['lr']:.8f}")
 
-            val_losses, recal_sets, precision_sets = eval(model, data_generator, outputs_dir, iteration=iterations, device=device)
+            val_losses, recal_sets, precision_sets, APs = eval(model, data_generator, outputs_dir, iteration=iterations,
+                                                          device=device)
 
-            plotter.report_validation_metrics(val_losses, recal_sets, precision_sets, iterations)
+            plotter.report_validation_metrics(val_losses, recal_sets, precision_sets, APs, iterations)
             plotter.plot(outputs_dir)
 
             checkpoint = {
@@ -107,7 +123,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=16)
     parser.add_argument('--lr', type=float, default=0.000003)
     parser.add_argument('--val_perc', type=float, default=0.15)
-    parser.add_argument('--num_train_steps', type=int, default=5000)
+    parser.add_argument('--num_train_steps', type=int, default=10000)
     parser.add_argument('--log_freq', type=int, default=500)
     parser.add_argument('--device', default='cuda:0', type=str)
     parser.add_argument('--force_preprocess', action='store_true', default=False)
@@ -119,14 +135,15 @@ if __name__ == '__main__':
 
     device = torch.device("cuda:0" if torch.cuda.is_available() and args.device == "cuda:0" else "cpu")
     print(device)
-    model = Cnn_AvgPooling(cfg.classes_num, model_config=[(64,2), (128,2), (256,2), (512,1)]).to(device)
+    model = Cnn_AvgPooling(cfg.classes_num, model_config=[(64, 2), (128, 2), (256, 2), (512, 1)]).to(device)
     model.model_description()
     if args.ckpt != '':
         checkpoint = torch.load(args.ckpt, map_location=device)
         model.load_state_dict(checkpoint['model'])
 
     # features_and_labels_dir, features_mean_std_file, dataset_name = get_tau_sed_generator(args.dataset_dir, train_or_eval='eval', force_preprocess=args.force_preprocess)
-    features_and_labels_dir, features_mean_std_file, dataset_name = get_film_clap_generator("../data/Film_take_clap", force_preprocess=args.force_preprocess)
+    features_and_labels_dir, features_mean_std_file, dataset_name = get_film_clap_generator("../data/Film_take_clap",
+                                                                                            force_preprocess=args.force_preprocess)
 
     data_generator = DataGenerator(features_and_labels_dir, features_mean_std_file,
                                    batch_size=args.batch_size,

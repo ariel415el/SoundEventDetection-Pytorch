@@ -16,13 +16,18 @@ def calculate_metrics(output, target):
     O = output[:, 0: N, :]
     recals = []
     precisions = []
-    f1_scores = []
     for th in ths:
         O_discrete = np.where(O > th, 1, 0)
         recall, prec = compute_recall_precision(O_discrete, T)
         recals.append(recall)
         precisions.append(prec)
-    return recals, precisions
+
+    recals, precisions = np.array(recals), np.array(precisions)
+    # from sklearn.metrics import average_precision_score
+    # AP = average_precision_score(T.reshape(-1).astype(int), O.reshape(-1))
+    AP = np.sum(precisions[:-1] * (recals[:-1] - recals[1:]))
+    return recals, precisions, AP
+
 
 
 def compute_recall_precision(O, T):
@@ -53,6 +58,10 @@ def binary_crossentropy(output, target):
         target[:, 0: N, :])
 
 
+def f_score(recll, precision, precision_importance_factor=1):
+    return (1+precision_importance_factor**2) * recll * precision / (precision_importance_factor**2 * recll + precision + 1e-9)
+
+
 class ProgressPlotter:
     def __init__(self):
         self.train_buffer = []
@@ -61,29 +70,28 @@ class ProgressPlotter:
         self.fh_score_avgs = []
         self.f1_score_avgs = []
         self.f5_score_avgs = []
-        self.f10_score_avgs = []
+        self.AP_avgs = []
         self.iterations = []
 
     def report_train_loss(self, loss):
         self.train_buffer.append(loss)
 
-    def report_validation_metrics(self, val_losses, recal_sets, precision_sets, iteration):
+    def report_validation_metrics(self, val_losses, recal_sets, precision_sets, APs, iteration):
         self.iterations.append(iteration)
 
-        self.val_avgs.append(np.mean(val_losses, axis=0))
+        self.val_avgs.append(np.mean(val_losses))
+        self.AP_avgs.append(np.mean(APs))
         self.last_recal_vals = np.mean(recal_sets, axis=0)
         self.last_precision_vals = np.mean(precision_sets, axis=0)
         self.fh_score_avgs.append(self.last_precision_vals[0])
-        f1_scores = (2 * self.last_precision_vals * self.last_recal_vals) / (self.last_recal_vals + self.last_precision_vals + 1e-9)
-        f5_scores = ((1+5**2) * self.last_precision_vals * self.last_recal_vals) / (5**2 * self.last_recal_vals + self.last_precision_vals + 1e-9)
-        f10_scores = ((1+10**2) * self.last_precision_vals * self.last_recal_vals) / (10**2 * self.last_recal_vals + self.last_precision_vals + 1e-9)
+        f1_scores = f_score(self.last_precision_vals, self.last_recal_vals, precision_importance_factor=1)
+        f5_scores = f_score(self.last_precision_vals, self.last_recal_vals, precision_importance_factor=5)
         self.f1_score_avgs.append(np.max(f1_scores))
         self.f5_score_avgs.append(np.max(f5_scores))
-        self.f10_score_avgs.append(np.max(f10_scores))
 
     def plot(self, outputs_dir):
         self.plot_train_eval_losses(os.path.join(outputs_dir, 'Training_loss.png'))
-        self.plot_max_fscores(os.path.join(outputs_dir, 'f1_scores.png'))
+        self.plot_metrics(os.path.join(outputs_dir, 'Metrics.png'))
         self.plot_roc(os.path.join(outputs_dir, 'ROC_plots', f"Roc-iteration-{self.iterations[-1]}.png"))
 
     def plot_train_eval_losses(self, plot_path):
@@ -100,12 +108,12 @@ class ProgressPlotter:
         plt.savefig(plot_path)
         plt.clf()
 
-    def plot_max_fscores(self, plot_path):
-        plt.plot(np.arange(len(self.f1_score_avgs)), self.f1_score_avgs, color='blue', label='f1 scroe')
-        plt.plot(np.arange(len(self.f5_score_avgs)), self.f5_score_avgs, color='green', label='f5 scroe')
-        plt.plot(np.arange(len(self.f10_score_avgs)), self.f10_score_avgs, color='orange', label='f10 scroe')
+    def plot_metrics(self, plot_path):
+        plt.plot(np.arange(len(self.f1_score_avgs)), self.f1_score_avgs, color='blue', label='Max f1 scroe')
+        plt.plot(np.arange(len(self.f5_score_avgs)), self.f5_score_avgs, color='green', label='Max f5 scroe')
         plt.plot(np.arange(len(self.fh_score_avgs)), self.fh_score_avgs, color='red', label='Precision in highest recall')
-        plt.title("F scores")
+        plt.plot(np.arange(len(self.AP_avgs)), self.AP_avgs, color='orange', label='Average precision')
+        plt.title("Metrics")
         x_indices = np.arange(0, len(self.iterations), max(len(self.iterations) // 5, 1))
         plt.xticks(x_indices, np.array(self.iterations)[x_indices])
         plt.legend()
@@ -117,9 +125,11 @@ class ProgressPlotter:
         plt.plot(self.last_recal_vals, self.last_precision_vals)
         plt.xticks([0, 0.25, 0.5, 0.75, 1])
         plt.yticks([0, 0.25, 0.5, 0.75, 1])
-        plt.title(f"Max recall {self.last_recal_vals[0]:.1f} with precision: {self.last_precision_vals[0]:.1f}")
-        plt.xlabel("Recall")
-        plt.ylabel("Precision")
+        MAP = np.sum(self.last_precision_vals[:-1] * (self.last_recal_vals[:-1] - self.last_recal_vals[1:]))
+        plt.title(f"Validation AVG ROC"
+                  f"\nAP: {MAP:.2f}")
+        plt.xlabel("Avg Recall")
+        plt.ylabel("Avg Precision")
         plt.savefig(plot_path)
         plt.clf()
 
@@ -148,7 +158,7 @@ def plot_debug_image(mel_features, output=None, target=None, file_name=None, plo
     axs[0].set_yticklabels([0, mel_bins])
 
     if output is not None:
-        im = axs[1].matshow(output.T, origin='lower', aspect='auto', cmap='jet', vmin=0, vmax=1)
+        im = axs[1].matshow(output.T, origin='lower', cmap='jet', vmin=0, vmax=1)
         fig.colorbar(im, ax=axs[1])
         axs[1].set_title("Predicted sound events", color='b')
     if target is not None:
@@ -170,6 +180,7 @@ def plot_debug_image(mel_features, output=None, target=None, file_name=None, plo
             axs[i].yaxis.grid(color='w', linestyle='solid', linewidth=0.2)
 
     fig.tight_layout()
+    plt.show()
     plt.savefig(plot_path)
     plt.close(fig)
 
