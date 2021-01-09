@@ -42,7 +42,7 @@ def compute_recall_precision(O, T):
     return recall, prec
 
 
-def binary_crossentropy(output, target):
+def binary_crossentropy(output, target, p_ones=0.7):
     '''Binary crossentropy between output and target.
 
     Args:
@@ -52,10 +52,12 @@ def binary_crossentropy(output, target):
 
     # Number of frames differ due to pooling on eve/odd number of frames
     N = min(output.shape[1], target.shape[1])
-
-    return F.binary_cross_entropy(
-        output[:, 0: N, :],
-        target[:, 0: N, :])
+    clipped_output = output[:, 0: N, :]
+    clipped_target = target[:, 0: N, :]
+    import torch
+    weight = torch.tensor([1 - p_ones, p_ones])
+    weight_ = weight[clipped_target.data.view(-1).long()].view_as(clipped_target)
+    return F.binary_cross_entropy(clipped_output, clipped_target, weight=weight_.to(target.device))
 
 
 def f_score(recll, precision, precision_importance_factor=1):
@@ -158,7 +160,7 @@ def plot_debug_image(mel_features, output=None, target=None, file_name=None, plo
     axs[0].set_yticklabels([0, mel_bins])
 
     if output is not None:
-        im = axs[1].matshow(output.T, origin='lower', cmap='jet', vmin=0, vmax=1)
+        im = axs[1].matshow(output.T, origin='lower', aspect='auto', cmap='jet', vmin=0, vmax=1)
         fig.colorbar(im, ax=axs[1])
         axs[1].set_title("Predicted sound events", color='b')
     if target is not None:
@@ -169,7 +171,7 @@ def plot_debug_image(mel_features, output=None, target=None, file_name=None, plo
 
     tick_hop = frames_num // 8
     xticks = np.concatenate((np.arange(0, frames_num - tick_hop, tick_hop), [frames_num]))
-    xlabels = [f"frame {x}\n{x//frames_per_second:.1f}s" for x in xticks]
+    xlabels = [f"frame {x}\n{x/frames_per_second:.1f}s" for x in xticks]
     for i in range(num_plots):
         # axs[i].set_xlabel('frame/second')
         axs[i].set_xticks(xticks)
@@ -180,7 +182,6 @@ def plot_debug_image(mel_features, output=None, target=None, file_name=None, plo
             axs[i].yaxis.grid(color='w', linestyle='solid', linewidth=0.2)
 
     fig.tight_layout()
-    plt.show()
     plt.savefig(plot_path)
     plt.close(fig)
 

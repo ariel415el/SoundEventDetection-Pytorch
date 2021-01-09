@@ -5,7 +5,6 @@ import config as cfg
 from dataset.preprocess import LogMelExtractor, read_multichannel_audio
 from utils import plot_debug_image
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Example of parser. ')
 
@@ -34,13 +33,12 @@ if __name__ == '__main__':
 
     multichannel_audio, _ = read_multichannel_audio(audio_path=args.audio_file, target_fs=cfg.working_sample_rate)
 
-    print("Inference..")
-    mel_features = feature_extractor.transform_multichannel(multichannel_audio)
+    mel_features = feature_extractor.transform_multichannel(multichannel_audio)[0]
 
+    print("Inference..")
     with torch.no_grad():
         output_event = model(torch.from_numpy(mel_features).to(device).float().unsqueeze(1))
     output_event = output_event.cpu()
     os.makedirs(args.outputs_dir, exist_ok=True)
 
-    plot_debug_image(mel_features[0], output=output_event[0], plot_path=os.path.join(args.outputs_dir, f"{os.path.splitext(os.path.basename(args.audio_file))[0]}.png"))
-
+    plot_debug_image(mel_features, output=output_event[0], plot_path=os.path.join(args.outputs_dir, f"{os.path.splitext(os.path.basename(args.audio_file))[0]}.png"))

@@ -3,5 +3,7 @@ __pycache__/
 .idea/
 /outputs/
 /training_dir/
+/samples/
+/inference_outputs/
 /processed_datasets/
 *.pth

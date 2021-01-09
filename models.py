@@ -39,6 +39,91 @@ def init_bn(bn):
     bn.weight.data.fill_(1.)
     bn.running_var.data.fill_(1.)
 
+class MobileNetV1(nn.Module):
+    def __init__(self, classes_num, model_config=DEFAULT_CHANNEL_AND_POOL):
+        super(MobileNetV1, self).__init__()
+        # self.conv1 = nn.Conv2d(in_channels=1, out_channels=32, kernel_size=3, stride=2, padding=1, bias=False)
+        self.bn0 = nn.BatchNorm2d(64)
+
+        def conv_bn(inp, oup, stride):
+            _layers = [
+                nn.Conv2d(inp, oup, 3, 1, 1, bias=False),
+                nn.AvgPool2d(stride),
+                nn.BatchNorm2d(oup),
+                nn.ReLU(inplace=True)
+                ]
+            _layers = nn.Sequential(*_layers)
+            init_layer(_layers[0])
+            init_bn(_layers[2])
+            return _layers
+
+        def conv_dw(inp, oup, stride):
+            _layers = [
+                nn.Conv2d(inp, inp, 3, 1, 1, groups=inp, bias=False),
+                nn.AvgPool2d(stride),
+                nn.BatchNorm2d(inp),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(inp, oup, 1, 1, 0, bias=False),
+                nn.BatchNorm2d(oup),
+                nn.ReLU(inplace=True)
+                ]
+            _layers = nn.Sequential(*_layers)
+            init_layer(_layers[0])
+            init_bn(_layers[2])
+            init_layer(_layers[4])
+            init_bn(_layers[5])
+            return _layers
+        self.num_pools = 3
+        self.features = nn.Sequential(
+            conv_bn(1,  32, 2),
+            conv_dw( 32,  64, 1),
+            conv_dw( 64, 128, 2),
+            conv_dw(128, 128, 1),
+            conv_dw(128, 256, 2),
+            conv_dw(256, 256, 1),
+            conv_dw(256, 512, 1),
+            conv_dw(512, 512, 1),
+            conv_dw(512, 512, 1),
+            conv_dw(512, 512, 1),
+            conv_dw(512, 512, 1),
+            conv_dw(512, 1024, 1),
+            conv_dw(1024, 1024, 1)
+        )
+        self.fc1 = nn.Linear(1024, 1024, bias=True)
+        self.fc_audioset = nn.Linear(1024, classes_num, bias=True)
+
+        self.init_weights()
+
+    def init_weights(self):
+        init_bn(self.bn0)
+        init_layer(self.fc1)
+        init_layer(self.fc_audioset)
+
+    def forward(self, x):
+        """
+        Input: (batch_size, data_length)"""
+        x = x.transpose(0, 1)  # -> (batch_size, channels_num, times_steps, freq_bins)
+        # x = x.transpose(1, 3)
+        # x = self.bn0(x)
+        # x = x.transpose(1, 3)
+
+        x = self.features(x)  # (batch_size, 512, time_steps / x, mel_bins / x)
+        x = torch.mean(x, dim=3)  # (batch_size, 512, time_steps / x)
+
+        x = x.transpose(1, 2)   # (batch_size, time_steps, 512)
+        x = F.relu_(self.fc1(x))  #  (batch_size, time_steps, 512)
+        # embedding = F.dropout(x, p=0.5, training=self.training)
+
+        event_output = torch.sigmoid(self.fc_audioset(x))  # (batch_size, time_steps, classes_num)
+
+        # Interpolate
+        event_output = interpolate(event_output, 2**self.num_pools)
+
+        return event_output
+
+    def model_description(self):
+        print(f"\tMobileNetV1 has {human_format(count_parameters(self))} parameters")
+
 
 class ConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels, pool_size=2):

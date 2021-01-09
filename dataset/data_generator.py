@@ -32,9 +32,9 @@ def create_event_matrix(frames_num, start_times, end_times):
 
 
 class DataGenerator(object):
-    def __init__(self, features_and_labels_dir, mean_std_file, batch_size, val_descriptor, balance_classes=False, augment_data=False, seed=1234):
+    def __init__(self, features_and_labels_dir, mean_std_file, batch_size, val_descriptor, balance_classes=False, augment_data=False):
         self.batch_size = batch_size
-        self.random_state = np.random.RandomState(seed)
+        self.random_state = np.random.RandomState()
         self.augment_data = augment_data
         self.train_crop_size = cfg.train_crop_size
 
@@ -198,8 +198,9 @@ class DataGenerator(object):
 
     def augment_batch_add_noise(self, batch_feature, batch_event_matrix):
         r = np.random.rand()
-        if r > 0.2:
-            batch_feature += np.random.normal(0, 0.01, size=batch_feature.shape)
+        if r > 0.5:
+            noise_var = 0.001 + (r + 0.5) * (0.005 - 0.001)
+            batch_feature += np.random.normal(0, noise_var, size=batch_feature.shape)
         return batch_feature, batch_event_matrix
 
     def augment_batch_mix_samples(self, batch_feature, batch_event_matrix):
@@ -230,6 +231,8 @@ def get_film_clap_paths_and_labels(data_root, time_margin=0.1):
     num_audio_files = 0
     dataset_sizes = 0
     for film_name in os.listdir(data_root):
+        if film_name == 'Meron':
+            continue
         dirpath = os.path.join(data_root, film_name)
         meta_data_pickle = os.path.join(dirpath, f"{film_name}_parsed.pkl")
 
