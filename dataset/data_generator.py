@@ -79,11 +79,13 @@ class DataGenerator(object):
             # Append data
             self.train_features_list.append(feature)
             self.train_event_matrix_list.append(event_matrix)
+
+            # Slpit data to chunks which contain an event and such that are not
             indices_with_event = np.zeros(possible_start_indices.shape, dtype=bool)
             for i in np.where(event_matrix > 0)[0]:
                 indices_with_event[i - self.train_crop_size: i] = True
-            self.train_index_with_event += np.where(indices_with_event)[0].tolist()
-            self.train_index_empty += np.where(indices_with_event == False)[0].tolist()
+            self.train_index_with_event += possible_start_indices[np.where(indices_with_event)[0]].tolist()
+            self.train_index_empty += possible_start_indices[np.where(indices_with_event == False)[0]].tolist()
 
         self.train_features = np.concatenate(self.train_features_list, axis=1)
         self.train_event_matrix = np.concatenate(self.train_event_matrix_list, axis=0)
