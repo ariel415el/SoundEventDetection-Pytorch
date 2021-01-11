@@ -233,8 +233,6 @@ def get_film_clap_paths_and_labels(data_root, time_margin=0.1):
     num_audio_files = 0
     dataset_sizes = 0
     for film_name in os.listdir(data_root):
-        if film_name == 'Meron':
-            continue
         dirpath = os.path.join(data_root, film_name)
         meta_data_pickle = os.path.join(dirpath, f"{film_name}_parsed.pkl")
 

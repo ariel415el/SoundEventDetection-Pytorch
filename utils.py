@@ -10,7 +10,7 @@ eps = np.finfo(np.float).eps
 
 
 def calculate_metrics(output, target):
-    ths =np.arange(0.05, 1, 0.05)
+    ths =np.arange(0.00, 1.05, 0.05)
     N = min(output.shape[1], target.shape[1])
     T = target[:, 0: N, :]
     O = output[:, 0: N, :]
@@ -28,8 +28,6 @@ def calculate_metrics(output, target):
     AP = np.sum(precisions[:-1] * (recals[:-1] - recals[1:]))
     return recals, precisions, AP
 
-
-
 def compute_recall_precision(O, T):
     TP = ((2 * T - O) == 1).sum()
 
@@ -43,7 +41,8 @@ def compute_recall_precision(O, T):
 
 
 def binary_crossentropy(output, target, p_ones=0.7):
-    '''Binary crossentropy between output and target.
+    '''
+    Binary crossentropy between output and target.
 
     Args:
       output: (batch_size, frames_num, classes_num)
