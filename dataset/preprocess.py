@@ -135,11 +135,10 @@ def preprocess_data(audio_path_and_labels, output_dir, output_mean_std_file):
         feature = feature_extractor.transform_multichannel(multichannel_audio)
         all_features.append(feature)
 
-        if len(start_times) > 0:
-            output_path = os.path.join(output_dir, audio_name + "_mel_features_and_labels.pkl")
-            with open(output_path, 'wb') as f:
-                pickle.dump({'features': feature, 'start_times': start_times, 'end_times': end_times},
-                            f)
+        output_path = os.path.join(output_dir, audio_name + "_mel_features_and_labels.pkl")
+        with open(output_path, 'wb') as f:
+            pickle.dump({'features': feature, 'start_times': start_times, 'end_times': end_times},
+                        f)
 
     all_features = np.concatenate(all_features, axis=1)
     mean, std = calculate_scalar_of_tensor(all_features)
