@@ -12,7 +12,7 @@ from dataset.preprocess import preprocess_data
 from utils import human_format
 
 cfg_descriptor = f"SaR-{human_format(cfg.working_sample_rate)}_FrS-{human_format(cfg.frame_size)}" \
-                 f"_HoS-{human_format(cfg.hop_size)}_Mel-{cfg.mel_bins}"
+                 f"_HoS-{human_format(cfg.hop_size)}_Mel-{cfg.mel_bins}_Ch-{cfg.audio_channels}"
 
 
 def create_event_matrix(frames_num, start_times, end_times):
@@ -56,6 +56,8 @@ class DataGenerator(object):
             self.train_feature_names = feature_names[val_split:]
             self.validate_feature_names = feature_names[:val_split]
         else:
+           self.train_feature_names = []
+           self.validate_feature_names = []
            for name in feature_names:
                if val_descriptor in name:
                    self.validate_feature_names.append(name)
@@ -142,7 +144,7 @@ class DataGenerator(object):
             batch_event_matrix = self.train_event_matrix[data_indexes]
 
             if self.augment_data:
-                batch_feature, batch_event_matrix = self.augment_batch_mix_samples(batch_feature, batch_event_matrix)
+                # batch_feature, batch_event_matrix = self.augment_batch_mix_samples(batch_feature, batch_event_matrix)
                 batch_feature, batch_event_matrix = self.augment_batch_add_noise(batch_feature, batch_event_matrix)
 
             # Transform data

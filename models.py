@@ -195,12 +195,16 @@ class Cnn_AvgPooling(nn.Module):
         x = torch.mean(x, dim=3)    # (batch_size, channels_num, time_steps)
         x = x.transpose(1, 2)   # (batch_size, time_steps, channels_num)
 
-        event_output = torch.sigmoid(self.event_fc(x))  # (batch_size, time_steps, classes_num)
+        # event_output = torch.sigmoid(self.event_fc(x))  # (batch_size, time_steps, classes_num)
+        event_output = self.event_fc(x)  # (batch_size, time_steps, classes_num)
 
         # Interpolate
         event_output = interpolate(event_output, 2**(self.num_pools))
 
         return event_output
+
+    def logits(self, x):
+        return torch.sigmoid(self.forward(x))
 
     def model_description(self):
         print("Model description")

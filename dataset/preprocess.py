@@ -88,7 +88,10 @@ def read_multichannel_audio(audio_path, target_fs=None):
     if len(multichannel_audio.shape) == 1:
         multichannel_audio = multichannel_audio.reshape(-1, 1)
     if multichannel_audio.shape[1] < cfg.audio_channels:
+        print(multichannel_audio.shape[1])
         multichannel_audio = np.repeat(multichannel_audio.mean(1).reshape(-1, 1), cfg.audio_channels, axis=1)
+    elif cfg.audio_channels == 1:
+        multichannel_audio = multichannel_audio.mean(1).reshape(-1, 1)
     elif multichannel_audio.shape[1] > cfg.audio_channels:
         multichannel_audio = multichannel_audio[:, :cfg.audio_channels]
 
@@ -98,7 +101,7 @@ def read_multichannel_audio(audio_path, target_fs=None):
 
         multichannel_audio = np.array(
             [librosa.resample(multichannel_audio[:, i], orig_sr=sample_rate, target_sr=target_fs) for i in range(channels_num)]
-                                        ).T
+        ).T
 
     return multichannel_audio, target_fs
 

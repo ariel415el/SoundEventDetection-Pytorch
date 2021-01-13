@@ -2,7 +2,7 @@ import os
 import argparse
 from tqdm import tqdm
 from torch import optim
-from utils import binary_crossentropy, ProgressPlotter, calculate_metrics, plot_debug_image, f_score
+from utils import clip_and_aply_criterion, ProgressPlotter, calculate_metrics, plot_debug_image, f_score
 from models import *
 import config as cfg
 from dataset.data_generator import get_film_clap_generator, get_tau_sed_generator, DataGenerator, cfg_descriptor
@@ -26,19 +26,19 @@ def eval(model, data_generator, outputs_dir, iteration, device, limit_val_sample
             model.eval()
             output = model(mel_features.to(device).float()).cpu()
 
-        loss = binary_crossentropy(output, target.float())
+        loss = clip_and_aply_criterion(output, target.float())
 
-        output = output.numpy()
+        output_logits = torch.sigmoid(output).numpy()
         target = target.numpy()
 
-        recal_vals, precision_vals, AP = calculate_metrics(output, target)
+        recal_vals, precision_vals, AP = calculate_metrics(output_logits, target)
 
         losses.append(loss.item())
         recal_sets.append(recal_vals)
         precision_sets.append(precision_vals)
         APs.append(AP)
 
-        debug_outputs.append(output)
+        debug_outputs.append(output_logits)
         debug_targets.append(target)
         debug_inputs.append(mel_features)
         debug_file_names.append(file_name)
@@ -62,7 +62,7 @@ def eval(model, data_generator, outputs_dir, iteration, device, limit_val_sample
 
 
 def train(model, data_generator, num_steps, lr, log_freq, outputs_dir, device):
-    lr_decay_freq = 100
+    lr_decay_freq = 200
     plotter = ProgressPlotter()
     os.makedirs(os.path.join(outputs_dir, 'checkpoints'), exist_ok=True)
 
@@ -77,7 +77,7 @@ def train(model, data_generator, num_steps, lr, log_freq, outputs_dir, device):
         # forward
         model.train()
         batch_outputs = model(batch_features.to(device).float())
-        loss = binary_crossentropy(batch_outputs, event_labels.to(device).float())
+        loss = clip_and_aply_criterion(batch_outputs, event_labels.to(device).float())
 
         # Backward
         optimizer.zero_grad()
@@ -120,11 +120,12 @@ if __name__ == '__main__':
     parser.add_argument('--dataset_dir', type=str, default='../data', help='Directory of dataset.')
     parser.add_argument('--outputs_root', type=str, default='training_dir')
     parser.add_argument('--ckpt', type=str, default='')
-    parser.add_argument('--batch_size', type=int, default=16)
+    parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--lr', type=float, default=0.000003)
     parser.add_argument('--val_perc', type=float, default=0.15)
-    parser.add_argument('--num_train_steps', type=int, default=10000)
+    parser.add_argument('--num_train_steps', type=int, default=30000)
     parser.add_argument('--log_freq', type=int, default=500)
+    parser.add_argument('--train_tag', type=str, default='')
     parser.add_argument('--device', default='cuda:0', type=str)
     parser.add_argument('--force_preprocess', action='store_true', default=False)
     parser.add_argument('--augment_data', action='store_true', default=False)
@@ -135,8 +136,8 @@ if __name__ == '__main__':
 
     device = torch.device("cuda:0" if torch.cuda.is_available() and args.device == "cuda:0" else "cpu")
     print(device)
-    model = Cnn_AvgPooling(cfg.classes_num, model_config=[(64, 2), (128, 2), (256, 2), (512, 1)]).to(device)
-    model.model_description()
+    model = Cnn_AvgPooling(cfg.classes_num, model_config=[(32,2), (64,2), (128,2), (128,1)]).to(device)
+    # model = MobileNetV1(cfg.classes_num).to(device)
     if args.ckpt != '':
         checkpoint = torch.load(args.ckpt, map_location=device)
         model.load_state_dict(checkpoint['model'])
@@ -149,13 +150,15 @@ if __name__ == '__main__':
                                    batch_size=args.batch_size,
                                    augment_data=args.augment_data,
                                    balance_classes=args.balance_classes,
-                                   val_descriptor=args.val_perc)
+                                   val_descriptor='DyingWithYou')
 
-    train_name = f"{dataset_name}_cfg({cfg_descriptor})_b{args.batch_size}_lr{args.lr}"
+    train_name = f"{dataset_name}_cfg({cfg_descriptor})_b{args.batch_size}_lr{args.lr}_{args.train_tag}"
     if args.balance_classes:
         train_name += "_BC"
     if args.augment_data:
         train_name += "_AD"
+
+    model.model_description()
 
     train(model, data_generator,
           num_steps=args.num_train_steps,

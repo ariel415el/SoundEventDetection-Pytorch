@@ -1,11 +1,10 @@
+import os
 import numpy as np
 from matplotlib import pyplot as plt
-from torch.nn import functional as F
-from collections import defaultdict
-import os
 
-from config import tau_sed_labels, frames_per_second, classes_num, mel_bins
-
+from torch import tensor
+from config import frames_per_second, classes_num, mel_bins
+from torch.nn.functional import binary_cross_entropy_with_logits
 eps = np.finfo(np.float).eps
 
 
@@ -40,7 +39,7 @@ def compute_recall_precision(O, T):
     return recall, prec
 
 
-def binary_crossentropy(output, target, p_ones=0.7):
+def clip_and_aply_criterion(output, target):
     '''
     Binary crossentropy between output and target.
 
@@ -53,10 +52,11 @@ def binary_crossentropy(output, target, p_ones=0.7):
     N = min(output.shape[1], target.shape[1])
     clipped_output = output[:, 0: N, :]
     clipped_target = target[:, 0: N, :]
-    import torch
-    weight = torch.tensor([1 - p_ones, p_ones])
-    weight_ = weight[clipped_target.data.view(-1).long()].view_as(clipped_target)
-    return F.binary_cross_entropy(clipped_output, clipped_target, weight=weight_.to(target.device))
+
+    # criterion = BCEWithLogitsLoss(pos_weight=tensor([1])).to(target.device)
+    # return criterion(clipped_output, clipped_target)
+    return binary_cross_entropy_with_logits(clipped_output, clipped_target, pos_weight=tensor([10]).to(output.device))
+
 
 
 def f_score(recll, precision, precision_importance_factor=1):
@@ -68,7 +68,6 @@ class ProgressPlotter:
         self.train_buffer = []
         self.train_avgs = []
         self.val_avgs = []
-        self.fh_score_avgs = []
         self.f1_score_avgs = []
         self.f5_score_avgs = []
         self.AP_avgs = []
@@ -84,7 +83,6 @@ class ProgressPlotter:
         self.AP_avgs.append(np.mean(APs))
         self.last_recal_vals = np.mean(recal_sets, axis=0)
         self.last_precision_vals = np.mean(precision_sets, axis=0)
-        self.fh_score_avgs.append(self.last_precision_vals[0])
         f1_scores = f_score(self.last_precision_vals, self.last_recal_vals, precision_importance_factor=1)
         f5_scores = f_score(self.last_precision_vals, self.last_recal_vals, precision_importance_factor=5)
         self.f1_score_avgs.append(np.max(f1_scores))
@@ -112,7 +110,6 @@ class ProgressPlotter:
     def plot_metrics(self, plot_path):
         plt.plot(np.arange(len(self.f1_score_avgs)), self.f1_score_avgs, color='blue', label='Max f1 scroe')
         plt.plot(np.arange(len(self.f5_score_avgs)), self.f5_score_avgs, color='green', label='Max f5 scroe')
-        plt.plot(np.arange(len(self.fh_score_avgs)), self.fh_score_avgs, color='red', label='Precision in highest recall')
         plt.plot(np.arange(len(self.AP_avgs)), self.AP_avgs, color='orange', label='Average precision')
         plt.title("Metrics")
         x_indices = np.arange(0, len(self.iterations), max(len(self.iterations) // 5, 1))
