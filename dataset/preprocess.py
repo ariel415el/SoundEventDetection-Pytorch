@@ -103,7 +103,7 @@ def read_multichannel_audio(audio_path, target_fs=None):
             [librosa.resample(multichannel_audio[:, i], orig_sr=sample_rate, target_sr=target_fs) for i in range(channels_num)]
         ).T
 
-    return multichannel_audio, target_fs
+    return multichannel_audio
 
 
 def calculate_scalar_of_tensor(x):
@@ -134,7 +134,7 @@ def preprocess_data(audio_path_and_labels, output_dir, output_mean_std_file):
 
     for (audio_path, start_times, end_times, audio_name) in tqdm(audio_path_and_labels):
 
-        multichannel_audio, _ = read_multichannel_audio(audio_path=audio_path, target_fs=cfg.working_sample_rate)
+        multichannel_audio = read_multichannel_audio(audio_path=audio_path, target_fs=cfg.working_sample_rate)
         feature = feature_extractor.transform_multichannel(multichannel_audio)
         all_features.append(feature)
 
@@ -158,7 +158,7 @@ def analyze_data_sample(audio_path, start_times, end_times, audio_name, feature_
     from dataset.data_generator import create_event_matrix
     org_multichannel_audio, org_sample_rate = soundfile.read(audio_path)
 
-    multichannel_audio, _ = read_multichannel_audio(audio_path=audio_path, target_fs=cfg.working_sample_rate)
+    multichannel_audio = read_multichannel_audio(audio_path=audio_path, target_fs=cfg.working_sample_rate)
     singlechannel_audio = multichannel_audio[:, 0]
     feature = feature_extractor.transform_singlechannel(singlechannel_audio)
 

@@ -6,4 +6,5 @@ __pycache__/
 /samples/
 /inference_outputs/
 /processed_datasets/
+/Successfull_Train_dir/
 *.pth

@@ -31,7 +31,7 @@ if __name__ == '__main__':
         fmin=cfg.mel_min_freq,
         fmax=cfg.mel_max_freq)
 
-    multichannel_audio, _ = read_multichannel_audio(audio_path=args.audio_file, target_fs=cfg.working_sample_rate)
+    multichannel_audio = read_multichannel_audio(audio_path=args.audio_file, target_fs=cfg.working_sample_rate)
 
     mel_features = feature_extractor.transform_multichannel(multichannel_audio)[0]
 
