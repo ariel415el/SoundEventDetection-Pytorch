@@ -5,7 +5,7 @@ from torch import optim
 from utils import clip_and_aply_criterion, ProgressPlotter, calculate_metrics, plot_debug_image, f_score
 from models import *
 import config as cfg
-from dataset.data_generator import get_film_clap_generator, get_tau_sed_generator, DataGenerator, cfg_descriptor
+from dataset.spectograms_dataset import preprocess_film_clap_data, preprocess_tau_sed_data, SpectogramGenerator, cfg_descriptor
 from time import time
 import numpy as np
 
@@ -142,15 +142,14 @@ if __name__ == '__main__':
         checkpoint = torch.load(args.ckpt, map_location=device)
         model.load_state_dict(checkpoint['model'])
 
-    # features_and_labels_dir, features_mean_std_file, dataset_name = get_tau_sed_generator(args.dataset_dir, train_or_eval='eval', force_preprocess=args.force_preprocess)
-    features_and_labels_dir, features_mean_std_file, dataset_name = get_film_clap_generator("../data/Film_take_clap",
-                                                                                            force_preprocess=args.force_preprocess)
+    features_and_labels_dir, features_mean_std_file, dataset_name = preprocess_tau_sed_data(args.dataset_dir, mode='eval', force_preprocess=args.force_preprocess)
+    # features_and_labels_dir, features_mean_std_file, dataset_name = preprocess_film_clap_data(args.dataset_dir, force_preprocess=args.force_preprocess)
 
-    data_generator = DataGenerator(features_and_labels_dir, features_mean_std_file,
-                                   batch_size=args.batch_size,
-                                   augment_data=args.augment_data,
-                                   balance_classes=args.balance_classes,
-                                   val_descriptor='DyingWithYou')
+    data_generator = SpectogramGenerator(features_and_labels_dir, features_mean_std_file,
+                                         batch_size=args.batch_size,
+                                         augment_data=args.augment_data,
+                                         balance_classes=args.balance_classes,
+                                         val_descriptor='DyingWithYou')
 
     train_name = f"{dataset_name}_cfg({cfg_descriptor})_b{args.batch_size}_lr{args.lr}_{args.train_tag}"
     if args.balance_classes:

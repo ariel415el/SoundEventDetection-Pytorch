@@ -155,7 +155,7 @@ def preprocess_data(audio_path_and_labels, output_dir, output_mean_std_file):
 
 
 def analyze_data_sample(audio_path, start_times, end_times, audio_name, feature_extractor, plot_path):
-    from dataset.data_generator import create_event_matrix
+    from dataset.spectograms_dataset import create_event_matrix
     org_multichannel_audio, org_sample_rate = soundfile.read(audio_path)
 
     multichannel_audio = read_multichannel_audio(audio_path=audio_path, target_fs=cfg.working_sample_rate)
