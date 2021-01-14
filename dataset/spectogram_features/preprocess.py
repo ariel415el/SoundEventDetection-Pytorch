@@ -7,8 +7,7 @@ import soundfile
 from tqdm import tqdm
 
 import dataset.spectogram_features.spectogram_configs as cfg
-from utils import plot_debug_image
-
+from utils.plot_utils import plot_debug_image
 
 MEL_FILTER_BANK_MATRIX = librosa.filters.mel(
     sr=cfg.working_sample_rate,

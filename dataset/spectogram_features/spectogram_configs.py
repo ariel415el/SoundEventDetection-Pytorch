@@ -1,3 +1,5 @@
+from utils.common import human_format
+
 working_sample_rate = 48000  # resample all waveforms to this sampling rate
 NFFT = 2 ** 10  # The size of the padded frames on which fft will actualy work. Set this to a power of two for faster preprocessing
 frame_size = 1000  # Size of frames on to extract spectogram form
@@ -14,12 +16,13 @@ train_crop_size = frames_per_second * 10  # 10-second log mel spectrogram as inp
 time_margin = 0.125  # Time gap around the sepecified event point to be considered as a True s
 
 # Tau-SED details:
-# The label configuration is the same as https://github.com/sharathadavanne/seld-dcase2019
 # tau_sed_labels = ['knock', 'drawer', 'clearthroat', 'phone', 'keysDrop', 'speech',
 #           'keyboard', 'pageturn', 'cough', 'doorslam', 'laughter']
 
 # tau_sed_labels = ['knock', 'keysDrop', 'doorslam']
 tau_sed_labels = ['doorslam']
 classes_num = len(tau_sed_labels)
-lb_to_idx = {lb: idx for idx, lb in enumerate(tau_sed_labels)}
-idx_to_lb = {idx: lb for idx, lb in enumerate(tau_sed_labels)}
+
+
+cfg_descriptor = f"SaR-{human_format(working_sample_rate)}_FrS-{human_format(frame_size)}" \
+                 f"_HoS-{human_format(hop_size)}_Mel-{mel_bins}_Ch-{audio_channels}"

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from dataset.spectogram_features.spectogram_configs import audio_channels, working_sample_rate, mel_bins, hop_size, classes_num
-from utils import count_parameters, human_format
+from utils.common import count_parameters, human_format
 
 DEFAULT_CHANNEL_AND_POOL=[(64,2), (128,2), (256,2), (512,1)]
 
@@ -40,7 +40,7 @@ def init_bn(bn):
     bn.running_var.data.fill_(1.)
 
 class MobileNetV1(nn.Module):
-    def __init__(self, classes_num, model_config=DEFAULT_CHANNEL_AND_POOL):
+    def __init__(self, classes_num):
         super(MobileNetV1, self).__init__()
         # self.conv1 = nn.Conv2d(in_channels=1, out_channels=32, kernel_size=3, stride=2, padding=1, bias=False)
         self.bn0 = nn.BatchNorm2d(64)

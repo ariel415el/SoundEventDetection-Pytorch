@@ -3,41 +3,9 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from torch import tensor
-from dataset.spectogram_features.spectogram_configs import frames_per_second, classes_num, mel_bins
 from torch.nn.functional import binary_cross_entropy_with_logits
-eps = np.finfo(np.float).eps
 
-
-def calculate_metrics(output, target):
-    ths =np.arange(0.00, 1.05, 0.05)
-    N = min(output.shape[1], target.shape[1])
-    T = target[:, 0: N, :]
-    O = output[:, 0: N, :]
-    recals = []
-    precisions = []
-    for th in ths:
-        O_discrete = np.where(O > th, 1, 0)
-        recall, prec = compute_recall_precision(O_discrete, T)
-        recals.append(recall)
-        precisions.append(prec)
-
-    recals, precisions = np.array(recals), np.array(precisions)
-    # from sklearn.metrics import average_precision_score
-    # AP = average_precision_score(T.reshape(-1).astype(int), O.reshape(-1))
-    AP = np.sum(precisions[:-1] * (recals[:-1] - recals[1:]))
-    return recals, precisions, AP
-
-
-def compute_recall_precision(O, T):
-    TP = ((2 * T - O) == 1).sum()
-
-    num_gt = T.sum()
-    num_positives = O.sum()
-
-    recall = float(TP) / float(num_gt) if num_gt > 0 else 0
-    prec = (float(TP) / float(num_positives)) if num_positives > 0 else 1
-
-    return recall, prec
+from utils.metric_utils import f_score
 
 
 def clip_and_aply_criterion(output, target):
@@ -57,10 +25,6 @@ def clip_and_aply_criterion(output, target):
     # criterion = BCEWithLogitsLoss(pos_weight=tensor([1])).to(target.device)
     # return criterion(clipped_output, clipped_target)
     return binary_cross_entropy_with_logits(clipped_output, clipped_target, pos_weight=tensor([10]).to(output.device))
-
-
-def f_score(recll, precision, precision_importance_factor=1):
-    return (1+precision_importance_factor**2) * recll * precision / (precision_importance_factor**2 * recll + precision + 1e-9)
 
 
 class ProgressPlotter:
@@ -132,56 +96,6 @@ class ProgressPlotter:
         plt.clf()
 
 
-def plot_debug_image(mel_features, output=None, target=None, file_name=None, plot_path=None):
-    os.makedirs(os.path.dirname(plot_path), exist_ok=True)
-    num_plots = 1
-    if output is not None:
-        num_plots += 1
-    if target is not None:
-        num_plots += 1
-
-    fig, axs = plt.subplots(num_plots, 1, figsize=(20, 15))
-    plt.subplots_adjust(hspace=1)
-    frames_num = mel_features.shape[0]
-    if file_name:
-        fig.suptitle(f"Sample name: {file_name}")
-    im = axs[0].matshow(mel_features.T, origin='lower', aspect='auto', cmap='jet')
-    fig.colorbar(im, ax=axs[0])
-
-    axs[0].set_title('Log mel spectrogram', color='r')
-
-    axs[0].set_ylabel('Mel bins')
-
-    axs[0].set_yticks([0, mel_bins])
-    axs[0].set_yticklabels([0, mel_bins])
-
-    if output is not None:
-        im = axs[1].matshow(output.T, origin='lower', aspect='auto', cmap='jet', vmin=0, vmax=1)
-        fig.colorbar(im, ax=axs[1])
-        axs[1].set_title("Predicted sound events", color='b')
-    if target is not None:
-        idx = 1 if output is None else 2
-        im = axs[idx].matshow(target.T, origin='lower', aspect='auto', cmap='jet', vmin=0, vmax=1)
-        fig.colorbar(im, ax=axs[idx])
-        axs[idx].set_title(f"Reference sound events, marked frames: {int(target.sum())}", color='r')
-
-    tick_hop = frames_num // 8
-    xticks = np.concatenate((np.arange(0, frames_num - tick_hop, tick_hop), [frames_num]))
-    xlabels = [f"frame {x}\n{x/frames_per_second:.1f}s" for x in xticks]
-    for i in range(num_plots):
-        # axs[i].set_xlabel('frame/second')
-        axs[i].set_xticks(xticks)
-        axs[i].set_xticklabels(xlabels)
-        axs[i].xaxis.set_ticks_position('bottom')
-        if i > 0:
-            axs[i].set_yticks(np.arange(classes_num))
-            axs[i].yaxis.grid(color='w', linestyle='solid', linewidth=0.2)
-
-    fig.tight_layout()
-    plt.savefig(plot_path)
-    plt.close(fig)
-
-
 def human_format(num):
     """
     :param num: A number to print in a nice readable way.
@@ -194,6 +108,7 @@ def human_format(num):
         num /= 1000.0
 
     return '%.1f%s' % (num, ['', 'K', 'M', 'G', 'T', 'P'][magnitude])  # add more suffices if you need them
+
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)

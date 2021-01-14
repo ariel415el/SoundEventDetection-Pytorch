@@ -7,15 +7,11 @@ from random import shuffle
 import torch
 from torch.utils.data import Dataset
 
+import dataset.spectogram_features.spectogram_configs
 import dataset.spectogram_features.spectogram_configs as cfg
-from dataset.common import get_film_clap_paths_and_labels, get_tau_sed_paths_and_labels
+from dataset.dataset_utils import get_film_clap_paths_and_labels, get_tau_sed_paths_and_labels
 from dataset.download_tau_sed_2019 import ensure_tau_data
 from dataset.spectogram_features.preprocess import preprocess_data, multichannel_complex_to_log_mel
-from utils import human_format
-
-cfg_descriptor = f"SaR-{human_format(cfg.working_sample_rate)}_FrS-{human_format(cfg.frame_size)}" \
-                 f"_HoS-{human_format(cfg.hop_size)}_Mel-{cfg.mel_bins}_Ch-{cfg.audio_channels}"
-
 
 class SpectogramDataset(Dataset):
     def __init__(self, features_and_labels_dir, mean_std_file, val_descriptor,
@@ -240,25 +236,24 @@ def create_event_matrix(frames_num, start_times, end_times):
     return event_matrix
 
 
-def preprocess_tau_sed_data(data_dir, save_mode, force_preprocess=False, fold_name='eval'):
+def preprocess_tau_sed_data(data_dir, preprocess_mode, force_preprocess=False, fold_name='eval'):
     """
     Download, extract and preprocess the tau sed datset
     force_preprocess: Force the preprocess phase to repeate: usefull in case you change the preprocess parameters
     """
-    global cfg_descriptor
-    cfg_descriptor = f"{cfg_descriptor}_C-{'-'.join(cfg.tau_sed_labels)}"
+    cfg.cfg_descriptor += f"_C-{'-'.join(cfg.tau_sed_labels)}"
 
     ambisonic_2019_data_dir = f"{data_dir}/Tau_sound_events_2019"
     audio_dir, meta_data_dir = ensure_tau_data(ambisonic_2019_data_dir, fold_name=fold_name)
 
-    processed_data_dir = os.path.join(ambisonic_2019_data_dir, f"processed_{cfg_descriptor}")
-    features_and_labels_dir = f"{processed_data_dir}/{save_mode}-features_and_labels_{fold_name}"
-    features_mean_std_file = f"{processed_data_dir}/{save_mode}-features_mean_std_{fold_name}.pkl"
+    processed_data_dir = os.path.join(ambisonic_2019_data_dir, f"processed_{dataset.spectogram_features.spectogram_configs.cfg_descriptor}")
+    features_and_labels_dir = f"{processed_data_dir}/{preprocess_mode}-features_and_labels_{fold_name}"
+    features_mean_std_file = f"{processed_data_dir}/{preprocess_mode}-features_mean_std_{fold_name}.pkl"
     if not os.path.exists(features_and_labels_dir) or force_preprocess:
         print("preprocessing raw data")
         audio_paths_and_labels = get_tau_sed_paths_and_labels(audio_dir, meta_data_dir)
         preprocess_data(audio_paths_and_labels, output_dir=features_and_labels_dir,
-                        output_mean_std_file=features_mean_std_file, save_mode=save_mode)
+                        output_mean_std_file=features_mean_std_file, preprocess_mode=preprocess_mode)
     else:
         print("Using existing mel features")
     return features_and_labels_dir, features_mean_std_file, "TAU"
@@ -270,12 +265,11 @@ def preprocess_film_clap_data(data_dir, preprocessed_mode, force_preprocess=Fals
     """
     film_clap_dir = os.path.join(data_dir, 'Film_take_clap')
     audio_and_labels_dir = os.path.join(film_clap_dir, 'raw')
-    global cfg_descriptor
-    cfg_descriptor = f"{cfg_descriptor}_tm-{cfg.time_margin}"
+    cfg.cfg_descriptor += f"_tm-{cfg.time_margin}"
     if not os.path.exists(film_clap_dir):
         raise Exception("You should get you own dataset...")
-    features_and_labels_dir = f"{film_clap_dir}/processed/{cfg_descriptor}/{preprocessed_mode}-features_and_labels"
-    features_mean_std_file = f"{film_clap_dir}/processed/{cfg_descriptor}/{preprocessed_mode}-features_mean_std.pkl"
+    features_and_labels_dir = f"{film_clap_dir}/processed/{dataset.spectogram_features.spectogram_configs.cfg_descriptor}/{preprocessed_mode}-features_and_labels"
+    features_mean_std_file = f"{film_clap_dir}/processed/{dataset.spectogram_features.spectogram_configs.cfg_descriptor}/{preprocessed_mode}-features_mean_std.pkl"
     if not os.path.exists(features_and_labels_dir) or force_preprocess:
         print("preprocessing raw data")
         audio_paths_and_labels = get_film_clap_paths_and_labels(audio_and_labels_dir, time_margin=cfg.time_margin)
