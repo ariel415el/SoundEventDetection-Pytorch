@@ -51,8 +51,7 @@ def eval(model, dataloader, outputs_dir, iteration, device, limit_val_samples=No
             unormelized_mel = debug_inputs[val_sample_idx][0][0]#  * data_generator.std + data_generator.mean
             plot_debug_image(unormelized_mel, output=debug_outputs[val_sample_idx][0],
                              target=debug_targets[val_sample_idx][0],
-                             file_name=debug_file_names[
-                                           val_sample_idx] + f" {metric_name} {values[val_sample_idx]:.2f}",
+                             file_name=debug_file_names[val_sample_idx] + f" {metric_name} {values[val_sample_idx]:.2f}",
                              plot_path=os.path.join(outputs_dir, 'images', f"Iter-{iteration}",
                                                     f"{metric_name}-{name}.png"))
 

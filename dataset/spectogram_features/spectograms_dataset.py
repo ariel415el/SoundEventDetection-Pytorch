@@ -87,7 +87,7 @@ class SpectogramDataset(Dataset):
             if n == max_validate_num:
                 break
 
-            name = os.path.splitext(feature_names[n])[0]
+            name = os.path.basename(os.path.splitext(feature_names[n])[0])
             feature = features_list[n]
             event_matrix = event_matrix_list[n]
 

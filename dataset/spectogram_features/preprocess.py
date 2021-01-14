@@ -122,7 +122,6 @@ def analyze_data_sample(audio_path, start_times, end_times, audio_name, plot_pat
     feature = multichannel_complex_to_log_mel(feature)
     first_channel_feature = feature[0]
     event_matrix = create_event_matrix(first_channel_feature.shape[0], start_times, end_times)
-    file_name = f"{os.path.basename(os.path.dirname(audio_path))}_{os.path.splitext(os.path.basename(audio_path))[0]}"
     plot_debug_image(first_channel_feature, target=event_matrix, plot_path=plot_path, file_name=file_name)
 
     signal_time = multichannel_audio.shape[0]/cfg.working_sample_rate

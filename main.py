@@ -42,14 +42,14 @@ if __name__ == '__main__':
     parser.add_argument('--force_preprocess', action='store_true', default=False)
 
     parser.add_argument('--preprocess_mode', type=str, default='Complex', help='logMel or Complex')
-    parser.add_argument('--augment_data', action='store_true', default=False, help='Only on logMel preprocess mode')
+    parser.add_argument('--augment_data', action='store_true', default=False)
     parser.add_argument('--balance_classes', action='store_true', default=False,
                         help='Whether to make sure there is same number of samples with and without events')
 
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--lr', type=float, default=0.000003)
     parser.add_argument('--num_train_steps', type=int, default=30000)
-    parser.add_argument('--log_freq', type=int, default=100)
+    parser.add_argument('--log_freq', type=int, default=500)
 
     parser.add_argument('--device', default='cuda:0', type=str)
     parser.add_argument('--num_workers', default=12, type=int)
