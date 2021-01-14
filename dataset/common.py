@@ -1,9 +1,10 @@
 import os
 import pickle
-
+from math import ceil
+import numpy as np
 import pandas as pd
 
-import config as cfg
+from dataset.spectogram_features import spectogram_configs as cfg
 
 
 def get_film_clap_paths_and_labels(data_root, time_margin=0.1):
@@ -53,3 +54,23 @@ def get_tau_sed_paths_and_labels(audio_dir, labels_data_dir):
         results += [(audio_path, start_times, end_times, bare_name)]
 
     return results
+
+
+def split_to_frames(signal, frame_length, overlap_length):
+    """
+    Split the signal into overlapping frames. pads the signal if necessary for division.
+    Here a new frame of size "frame_length" samples starts every "overlap_length" samples
+    :param frame_length: how many samples in each frames
+    :param overlap_length: overlapping samples
+    :return: numpy array of size num_frames, frame_length
+    """
+    num_frames = ceil(len(signal) / float(overlap_length))
+    pad_size = (num_frames - 1) * overlap_length + frame_length - len(signal)
+    padded_signal = np.append(signal, np.zeros(pad_size))
+
+    # extract overlapping frames:
+    frame_offsets = np.tile(np.arange(0, num_frames) * overlap_length, (frame_length, 1)).T
+    frame_indices = np.tile(np.arange(0, frame_length), (num_frames, 1))
+    frame_indices += frame_offsets
+
+    return padded_signal[frame_indices]

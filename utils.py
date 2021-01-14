@@ -3,7 +3,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from torch import tensor
-from config import frames_per_second, classes_num, mel_bins
+from dataset.spectogram_features.spectogram_configs import frames_per_second, classes_num, mel_bins
 from torch.nn.functional import binary_cross_entropy_with_logits
 eps = np.finfo(np.float).eps
 
@@ -26,6 +26,7 @@ def calculate_metrics(output, target):
     # AP = average_precision_score(T.reshape(-1).astype(int), O.reshape(-1))
     AP = np.sum(precisions[:-1] * (recals[:-1] - recals[1:]))
     return recals, precisions, AP
+
 
 def compute_recall_precision(O, T):
     TP = ((2 * T - O) == 1).sum()
@@ -56,7 +57,6 @@ def clip_and_aply_criterion(output, target):
     # criterion = BCEWithLogitsLoss(pos_weight=tensor([1])).to(target.device)
     # return criterion(clipped_output, clipped_target)
     return binary_cross_entropy_with_logits(clipped_output, clipped_target, pos_weight=tensor([10]).to(output.device))
-
 
 
 def f_score(recll, precision, precision_importance_factor=1):

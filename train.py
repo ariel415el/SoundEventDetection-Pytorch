@@ -1,26 +1,28 @@
 import os
 import argparse
+
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 from torch import optim
-from utils import clip_and_aply_criterion, ProgressPlotter, calculate_metrics, plot_debug_image, f_score
+
+from utils import clip_and_aply_criterion, ProgressPlotter, calculate_metrics, plot_debug_image
 from models import *
-import config as cfg
-from dataset.spectograms_dataset import preprocess_film_clap_data, preprocess_tau_sed_data, SpectogramGenerator, cfg_descriptor
+from dataset.spectogram_features import spectogram_configs as cfg
+from dataset.spectogram_features.spectograms_dataset import preprocess_film_clap_data, SpectogramDataset, cfg_descriptor
 from time import time
 import numpy as np
 
 
-def eval(model, data_generator, outputs_dir, iteration, device, limit_val_samples=None):
+def eval(model, dataloader, outputs_dir, iteration, device, limit_val_samples=None):
     losses = []
     recal_sets, precision_sets, APs = [], [], []
     debug_outputs = []
     debug_targets = []
     debug_inputs = []
     debug_file_names = []
-    for idx, (mel_features, target, file_name) in enumerate(
-            data_generator.generate_validate('validate', max_validate_num=limit_val_samples)):
-        # for idx, (mel_features, target) in enumerate(data_generator.generate_train()):
-        #     file_name = "NA"
+    val_sampler = dataloader.dataset.get_validation_sampler(max_validate_num=limit_val_samples)
+    for idx, (mel_features, target, file_name) in enumerate(val_sampler):
+
         model.eval()
         with torch.no_grad():
             model.eval()
@@ -50,7 +52,7 @@ def eval(model, data_generator, outputs_dir, iteration, device, limit_val_sample
         indices = np.argsort(values)
         for (name, idx) in named_indices:
             val_sample_idx = indices[idx]
-            unormelized_mel = debug_inputs[val_sample_idx][0][0] * data_generator.std + data_generator.mean
+            unormelized_mel = debug_inputs[val_sample_idx][0][0]#  * data_generator.std + data_generator.mean
             plot_debug_image(unormelized_mel, output=debug_outputs[val_sample_idx][0],
                              target=debug_targets[val_sample_idx][0],
                              file_name=debug_file_names[
@@ -71,7 +73,7 @@ def train(model, data_generator, num_steps, lr, log_freq, outputs_dir, device):
 
     iterations = 0
     print("Training")
-    tqdm_bar = tqdm(data_generator.generate_train())
+    tqdm_bar = tqdm(data_generator)
     training_start_time = time()
     for (batch_features, event_labels) in tqdm_bar:
         # forward
@@ -122,9 +124,10 @@ if __name__ == '__main__':
     parser.add_argument('--ckpt', type=str, default='')
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--lr', type=float, default=0.000003)
-    parser.add_argument('--val_perc', type=float, default=0.15)
+    parser.add_argument('--val_perc', default=0.15, help='float for percentage string for specifying fold substring')
+    parser.add_argument('--preprocess_mode', type=str, default='Complex', help='logMel or Complex')
     parser.add_argument('--num_train_steps', type=int, default=30000)
-    parser.add_argument('--log_freq', type=int, default=500)
+    parser.add_argument('--log_freq', type=int, default=100)
     parser.add_argument('--train_tag', type=str, default='')
     parser.add_argument('--device', default='cuda:0', type=str)
     parser.add_argument('--force_preprocess', action='store_true', default=False)
@@ -142,14 +145,18 @@ if __name__ == '__main__':
         checkpoint = torch.load(args.ckpt, map_location=device)
         model.load_state_dict(checkpoint['model'])
 
-    features_and_labels_dir, features_mean_std_file, dataset_name = preprocess_tau_sed_data(args.dataset_dir, mode='eval', force_preprocess=args.force_preprocess)
-    # features_and_labels_dir, features_mean_std_file, dataset_name = preprocess_film_clap_data(args.dataset_dir, force_preprocess=args.force_preprocess)
+    # features_and_labels_dir, features_mean_std_file, dataset_name = preprocess_tau_sed_data(args.dataset_dir, mode='eval', force_preprocess=args.force_preprocess)
+    features_and_labels_dir, features_mean_std_file, dataset_name = preprocess_film_clap_data(args.dataset_dir,
+                                                                                              preprocessed_mode=args.preprocess_mode,
+                                                                                              force_preprocess=args.force_preprocess)
 
-    data_generator = SpectogramGenerator(features_and_labels_dir, features_mean_std_file,
-                                         batch_size=args.batch_size,
-                                         augment_data=args.augment_data,
-                                         balance_classes=args.balance_classes,
-                                         val_descriptor='DyingWithYou')
+    data_generator = SpectogramDataset(features_and_labels_dir, features_mean_std_file,
+                                       augment_data=args.augment_data,
+                                       balance_classes=args.balance_classes,
+                                       val_descriptor='DyingWithYou',
+                                       preprocessed_mode=args.preprocess_mode)
+
+    dataloader = DataLoader(data_generator, batch_size=args.batch_size, num_workers=12)
 
     train_name = f"{dataset_name}_cfg({cfg_descriptor})_b{args.batch_size}_lr{args.lr}_{args.train_tag}"
     if args.balance_classes:
@@ -159,7 +166,7 @@ if __name__ == '__main__':
 
     model.model_description()
 
-    train(model, data_generator,
+    train(model, dataloader,
           num_steps=args.num_train_steps,
           outputs_dir=os.path.join(args.outputs_root, train_name),
           device=device,

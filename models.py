@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from config import audio_channels, working_sample_rate, mel_bins, hop_size, classes_num
+from dataset.spectogram_features.spectogram_configs import audio_channels, working_sample_rate, mel_bins, hop_size, classes_num
 from utils import count_parameters, human_format
 
 DEFAULT_CHANNEL_AND_POOL=[(64,2), (128,2), (256,2), (512,1)]
@@ -182,11 +182,9 @@ class Cnn_AvgPooling(nn.Module):
 
         init_layer(self.event_fc)
 
-    def forward(self, input):
+    def forward(self, x):
         '''
-        Input: (channels_num, batch_size, times_steps, freq_bins)'''
-
-        x = input.transpose(0, 1)  # -> (batch_size, channels_num, times_steps, freq_bins)
+        Input: (batch_size, channels_num, times_steps, freq_bins)'''
 
         x = self.conv_blocks(x)
 

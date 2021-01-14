@@ -1,8 +1,8 @@
 import argparse
 import os
 from models import *
-import config as cfg
-from dataset.preprocess import LogMelExtractor, read_multichannel_audio
+from dataset.spectogram_features import spectogram_configs as cfg
+from dataset.spectogram_features.preprocess import multichannel_stft, multichannel_complex_to_log_mel, read_multichannel_audio
 from utils import plot_debug_image
 
 if __name__ == '__main__':
@@ -22,23 +22,15 @@ if __name__ == '__main__':
     # model.load_state_dict(checkpoint['model'])
 
     print("Preprocessing audio file..")
-    feature_extractor = LogMelExtractor(
-        sample_rate=cfg.working_sample_rate,
-        nfft=cfg.NFFT,
-        window_size=cfg.frame_size,
-        hop_size=cfg.hop_size,
-        mel_bins=cfg.mel_bins,
-        fmin=cfg.mel_min_freq,
-        fmax=cfg.mel_max_freq)
 
     multichannel_audio = read_multichannel_audio(audio_path=args.audio_file, target_fs=cfg.working_sample_rate)
 
-    mel_features = feature_extractor.transform_multichannel(multichannel_audio)[0]
+    log_mel_features = multichannel_complex_to_log_mel(multichannel_stft(multichannel_audio))[0]
 
     print("Inference..")
     with torch.no_grad():
-        output_event = model(torch.from_numpy(mel_features).to(device).float().unsqueeze(1))
+        output_event = model(torch.from_numpy(log_mel_features).to(device).float().unsqueeze(1))
     output_event = output_event.cpu()
     os.makedirs(args.outputs_dir, exist_ok=True)
 
-    plot_debug_image(mel_features, output=output_event[0], plot_path=os.path.join(args.outputs_dir, f"{os.path.splitext(os.path.basename(args.audio_file))[0]}.png"))
+    plot_debug_image(log_mel_features, output=output_event[0], plot_path=os.path.join(args.outputs_dir, f"{os.path.splitext(os.path.basename(args.audio_file))[0]}.png"))
