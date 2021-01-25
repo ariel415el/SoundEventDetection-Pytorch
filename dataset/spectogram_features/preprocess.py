@@ -7,7 +7,7 @@ import soundfile
 from tqdm import tqdm
 
 import dataset.spectogram_features.spectogram_configs as cfg
-from utils.plot_utils import plot_debug_image
+from utils.plot_utils import plot_mel_features
 
 MEL_FILTER_BANK_MATRIX = librosa.filters.mel(
     sr=cfg.working_sample_rate,
@@ -122,7 +122,7 @@ def analyze_data_sample(audio_path, start_times, end_times, audio_name, plot_pat
     feature = multichannel_complex_to_log_mel(feature)
     first_channel_feature = feature[0]
     event_matrix = create_event_matrix(first_channel_feature.shape[0], start_times, end_times)
-    plot_debug_image(first_channel_feature, target=event_matrix, plot_path=plot_path, file_name=file_name)
+    plot_mel_features(first_channel_feature, target=event_matrix, plot_path=plot_path, file_name=file_name)
 
     signal_time = multichannel_audio.shape[0]/cfg.working_sample_rate
     FPS = cfg.working_sample_rate / cfg.hop_size

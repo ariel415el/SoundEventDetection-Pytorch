@@ -24,5 +24,5 @@ tau_sed_labels = ['doorslam']
 classes_num = len(tau_sed_labels)
 
 
-cfg_descriptor = f"SaR-{human_format(working_sample_rate)}_FrS-{human_format(frame_size)}" \
+cfg_descriptor = f"Spectogram_SaR-{human_format(working_sample_rate)}_FrS-{human_format(frame_size)}" \
                  f"_HoS-{human_format(hop_size)}_Mel-{mel_bins}_Ch-{audio_channels}"

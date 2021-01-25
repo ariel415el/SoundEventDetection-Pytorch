@@ -2,14 +2,14 @@ import os
 from tqdm import tqdm
 import torch
 from torch import optim
-from utils.common import clip_and_aply_criterion, ProgressPlotter
+from utils.common import ProgressPlotter
 from utils.metric_utils import calculate_metrics
-from utils.plot_utils import plot_debug_image
+from utils.plot_utils import plot_mel_features
 from time import time
 import numpy as np
 
 
-def eval(model, dataloader, outputs_dir, iteration, device, limit_val_samples=None):
+def eval(model, dataloader, criterion, outputs_dir, iteration, device, limit_val_samples=None):
     losses = []
     recal_sets, precision_sets, APs = [], [], []
     debug_outputs = []
@@ -17,14 +17,17 @@ def eval(model, dataloader, outputs_dir, iteration, device, limit_val_samples=No
     debug_inputs = []
     debug_file_names = []
     val_sampler = dataloader.dataset.get_validation_sampler(max_validate_num=limit_val_samples)
-    for idx, (mel_features, target, file_name) in enumerate(val_sampler):
+    for idx, (inputs, target, file_name) in enumerate(val_sampler):
 
         model.eval()
         with torch.no_grad():
             model.eval()
-            output = model(mel_features.to(device).float()).cpu()
+            output = model(inputs.to(device).float()).cpu()
 
-        loss = clip_and_aply_criterion(output, target.float())
+        loss = criterion(output, target.float())
+
+        output = output.reshape(1,-1, 1)
+        target = target.reshape(1,-1, 1)
 
         output_logits = torch.sigmoid(output).numpy()
         target = target.numpy()
@@ -38,27 +41,29 @@ def eval(model, dataloader, outputs_dir, iteration, device, limit_val_samples=No
 
         debug_outputs.append(output_logits)
         debug_targets.append(target)
-        debug_inputs.append(mel_features)
+        debug_inputs.append(inputs)
         debug_file_names.append(file_name)
 
-    # plot input, outputs and targets of worst and best samples by each metric
-    for (metric_name, values, named_indices) in [
-                                        ("loss", losses, [('worst', -1), ('2-worst', -2), ('3-worst', -3), ('best', 0)]),
-                                        ('AP', APs, [('worst', 0), ('best', -1)])]:
-        indices = np.argsort(values)
-        for (name, idx) in named_indices:
-            val_sample_idx = indices[idx]
-            unormelized_mel = debug_inputs[val_sample_idx][0][0]#  * data_generator.std + data_generator.mean
-            plot_debug_image(unormelized_mel, output=debug_outputs[val_sample_idx][0],
-                             target=debug_targets[val_sample_idx][0],
-                             file_name=debug_file_names[val_sample_idx] + f" {metric_name} {values[val_sample_idx]:.2f}",
-                             plot_path=os.path.join(outputs_dir, 'images', f"Iter-{iteration}",
-                                                    f"{metric_name}-{name}.png"))
+    # # plot input, outputs and targets of worst and best samples by each metric
+    # for (metric_name, values, named_indices) in [
+    #                                     ("loss", losses, [('worst', -1), ('2-worst', -2), ('3-worst', -3), ('best', 0)]),
+    #                                     ('AP', APs, [('worst', 0), ('best', -1)])]:
+    #     indices = np.argsort(values)
+    #     for (name, idx) in named_indices:
+    #         val_sample_idx = indices[idx]
+    #         unormelized_mel = debug_inputs[val_sample_idx][0][0]#  * data_generator.std + data_generator.mean
+    #         plot_mel_features(unormelized_mel, output=debug_outputs[val_sample_idx][0],
+    #                           target=debug_targets[val_sample_idx][0],
+    #                           file_name=debug_file_names[val_sample_idx] + f" {metric_name} {values[val_sample_idx]:.2f}",
+    #                           plot_path=os.path.join(outputs_dir, 'images', f"Iter-{iteration}",
+    #                                                 f"{metric_name}-{name}.png"))
 
     return losses, recal_sets, precision_sets, APs
 
 
-def train(model, data_generator, num_steps, lr, log_freq, outputs_dir, device):
+def train(model, data_loader, criterion, num_steps, lr, log_freq, outputs_dir, device):
+    print("Training:")
+    print("\t- Using device: ", device)
     lr_decay_freq = 200
     plotter = ProgressPlotter()
     os.makedirs(os.path.join(outputs_dir, 'checkpoints'), exist_ok=True)
@@ -67,14 +72,13 @@ def train(model, data_generator, num_steps, lr, log_freq, outputs_dir, device):
     optimizer = optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999), eps=1e-08, weight_decay=0., amsgrad=True)
 
     iterations = 0
-    print("Training")
-    tqdm_bar = tqdm(data_generator)
+    tqdm_bar = tqdm(data_loader)
     training_start_time = time()
     for (batch_features, event_labels) in tqdm_bar:
         # forward
         model.train()
         batch_outputs = model(batch_features.to(device).float())
-        loss = clip_and_aply_criterion(batch_outputs, event_labels.to(device).float())
+        loss = criterion(batch_outputs, event_labels.to(device).float())
 
         # Backward
         optimizer.zero_grad()
@@ -89,11 +93,11 @@ def train(model, data_generator, num_steps, lr, log_freq, outputs_dir, device):
                 param_group['lr'] *= 0.99
 
         if iterations % log_freq == 0:
-            im_sec = iterations * data_generator.batch_size / (time() - training_start_time)
+            im_sec = iterations * data_loader.batch_size / (time() - training_start_time)
             tqdm_bar.set_description(
                 f"step: {iterations}, loss: {loss.item():.2f}, im/sec: {im_sec:.1f}, lr: {optimizer.param_groups[0]['lr']:.8f}")
 
-            val_losses, recal_sets, precision_sets, APs = eval(model, data_generator, outputs_dir, iteration=iterations,
+            val_losses, recal_sets, precision_sets, APs = eval(model, data_loader, criterion, outputs_dir, iteration=iterations,
                                                           device=device)
 
             plotter.report_validation_metrics(val_losses, recal_sets, precision_sets, APs, iterations)

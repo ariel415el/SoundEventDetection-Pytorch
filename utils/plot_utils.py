@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 from dataset.spectogram_features.spectogram_configs import mel_bins, frames_per_second, classes_num
 
 
-def plot_debug_image(mel_features, output=None, target=None, file_name=None, plot_path=None):
+def plot_mel_features(mel_features, output=None, target=None, file_name=None, plot_path=None):
     os.makedirs(os.path.dirname(plot_path), exist_ok=True)
     num_plots = 1
     if output is not None:

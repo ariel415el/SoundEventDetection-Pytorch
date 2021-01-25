@@ -8,23 +8,26 @@ from torch.nn.functional import binary_cross_entropy_with_logits
 from utils.metric_utils import f_score
 
 
-def clip_and_aply_criterion(output, target):
-    '''
-    Binary crossentropy between output and target.
+class WeightedBCE:
+    def __init__(self, recall_factor, multi_frame):
+        self.recall_factor = tensor([recall_factor])
+        self.multi_frame = multi_frame
 
-    Args:
-      output: (batch_size, frames_num, classes_num)
-      target: (batch_size, frames_num, classes_num)
-    '''
+    def __call__(self, output, target):
+        if self.multi_frame:
+            # expected shape (batch_size, frames_num, classes_num)
+            # Number of frames differ due to pooling on eve/odd number of frames
+            N = min(output.shape[1], target.shape[1])
+            _output = output[:, :N]
+            _target = target[:, :N]
 
-    # Number of frames differ due to pooling on eve/odd number of frames
-    N = min(output.shape[1], target.shape[1])
-    clipped_output = output[:, 0: N, :]
-    clipped_target = target[:, 0: N, :]
+        else:
+            # expected shape (batch_size, classes_num)
+            _output = output.reshape(-1)
+            _target = target
 
-    # criterion = BCEWithLogitsLoss(pos_weight=tensor([1])).to(target.device)
-    # return criterion(clipped_output, clipped_target)
-    return binary_cross_entropy_with_logits(clipped_output, clipped_target, pos_weight=tensor([10]).to(output.device))
+        return binary_cross_entropy_with_logits(_output, _target,
+                                         pos_weight=self.recall_factor.to(_output.device))
 
 
 class ProgressPlotter:

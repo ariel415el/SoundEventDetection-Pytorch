@@ -15,6 +15,7 @@ def get_film_clap_paths_and_labels(data_root, time_margin=0.1):
     num_claps = 0
     num_audio_files = 0
     dataset_sizes = 0
+    print("Collecting Film-clap dataset")
     for film_name in os.listdir(data_root):
         dirpath = os.path.join(data_root, film_name)
         meta_data_pickle = os.path.join(dirpath, f"{film_name}_parsed.pkl")
@@ -29,9 +30,9 @@ def get_film_clap_paths_and_labels(data_root, time_margin=0.1):
             result += [(soundfile_path, start_times, end_times, name)]
             num_claps += len(start_times)
             num_audio_files += 1
-        print(f"Dataset : {film_name} has {len(result) - dataset_sizes} samples")
+        print(f"\t* {film_name} has {len(result) - dataset_sizes} samples")
         dataset_sizes = len(result)
-    print(f"Film clap dataset contains {num_audio_files} audio files with {num_claps} clap incidents")
+    print(f"\tFilm clap dataset contains {num_audio_files} audio files with {num_claps} clap incidents")
     return result
 
 
