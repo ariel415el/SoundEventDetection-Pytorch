@@ -81,8 +81,8 @@ if __name__ == '__main__':
 
     device = torch.device("cuda:0" if torch.cuda.is_available() and args.device == "cuda:0" else "cpu")
 
-    dataset, model, criterion, descriptor = get_spectogram_dataset_model_and_criterion(args)
-    # dataset, model, criterion, descriptor = get_waveform_dataset_and_model(args)
+    # dataset, model, criterion, descriptor = get_spectogram_dataset_model_and_criterion(args)
+    dataset, model, criterion, descriptor = get_waveform_dataset_and_model(args)
     model = model.to(device)
 
     dataloader = DataLoader(dataset, batch_size=args.batch_size, num_workers=args.num_workers)

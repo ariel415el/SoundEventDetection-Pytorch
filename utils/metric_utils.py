@@ -3,9 +3,9 @@ import numpy as np
 
 def calculate_metrics(output, target):
     ths =np.arange(0.00, 1.05, 0.05)
-    N = min(output.shape[1], target.shape[1])
-    T = target[:, :N]
-    O = output[:, :N]
+    N = min(output.shape[0], target.shape[0])
+    T = target[:N]
+    O = output[:N]
     recals = []
     precisions = []
     for th in ths:
