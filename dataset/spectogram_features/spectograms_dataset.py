@@ -109,6 +109,7 @@ class SpectogramDataset(Dataset):
             return multichannel_complex_to_log_mel(x)
 
     def augment_add_noise(self, batch_feature, batch_event_matrix):
+        # TODO these number are fit to noise added to waveform and not spectogram
         r = np.random.rand()
         if r > 0.5:
             noise_var = 0.001 + (r + 0.5) * (0.005 - 0.001)
@@ -250,7 +251,6 @@ def preprocess_tau_sed_data(data_dir, preprocess_mode, force_preprocess=False, f
     features_and_labels_dir = f"{processed_data_dir}/{preprocess_mode}-features_and_labels_{fold_name}"
     features_mean_std_file = f"{processed_data_dir}/{preprocess_mode}-features_mean_std_{fold_name}.pkl"
     if not os.path.exists(features_and_labels_dir) or force_preprocess:
-        print("preprocessing raw data")
         audio_paths_and_labels = get_tau_sed_paths_and_labels(audio_dir, meta_data_dir)
         preprocess_data(audio_paths_and_labels, output_dir=features_and_labels_dir,
                         output_mean_std_file=features_mean_std_file, preprocess_mode=preprocess_mode)

@@ -15,8 +15,11 @@ hop_size = frame_size // 2
 
 
 class WaveformDataset(Dataset):
-    def __init__(self, data_dir, val_perc=0.15):
+    def __init__(self, data_dir, val_descriptor=0.15, balance_classes=False, augment_data=False, epochs=10):
         audio_paths_labels_and_names = get_film_clap_paths_and_labels(os.path.join(data_dir, 'raw'), time_margin)
+        self.balance_classes = balance_classes
+        self.augment_data = augment_data
+        self.epochs = epochs
 
         self.frames = []
         self.frame_labels = []
@@ -27,7 +30,7 @@ class WaveformDataset(Dataset):
         print("\t- Loading samples into memory... ")
 
         np.random.shuffle(audio_paths_labels_and_names)
-        val_perc = int(len(audio_paths_labels_and_names) * val_perc)
+        val_perc = int(len(audio_paths_labels_and_names) * val_descriptor)
 
         num_frames = 0
         num_event_frames = 0
@@ -60,10 +63,22 @@ class WaveformDataset(Dataset):
             yield torch.tensor(frames), torch.tensor(labels), file_names
 
     def __len__(self):
-        return len(self.frames)
+        return len(self.frames) * self.epochs
 
     def __getitem__(self, idx):
-        return self.frames[idx], self.frame_labels[idx]
+        real_idx = idx % len(self.frames)
+        waveform, label = self.frames[real_idx], self.frame_labels[real_idx]
+
+        if self.augment_data:
+            number_of_augmentations = np.random.choice([0, 1, 2, 3], 1, p=[0.6, 0.25, 0.1, 0.05])[0]
+            for i in range(number_of_augmentations):
+                random_idx = np.random.randint(len(self.frames) + 1)
+
+                waveform += self.frames[random_idx]
+                label = max(label, self.frame_labels[random_idx])
+            waveform /= (number_of_augmentations + 1)
+
+        return waveform, label
 
 
 if __name__ == '__main__':

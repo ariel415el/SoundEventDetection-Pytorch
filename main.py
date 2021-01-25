@@ -39,7 +39,11 @@ def get_waveform_dataset_and_model(args):
     from dataset.waveform.waveform_configs import cfg_descriptor
     from models.waveform_models import M3
 
-    dataset = WaveformDataset(os.path.join(args.dataset_dir, 'FilmClap'))
+    dataset = WaveformDataset(os.path.join(args.dataset_dir, 'FilmClap'),
+                              augment_data=args.augment_data,
+                              balance_classes=args.balance_classes,
+                              val_descriptor=args.val_descriptor
+                              )
     model = M3(1)
     criterion = WeightedBCE(recall_factor=args.recall_priority, multi_frame=False)
 
@@ -68,7 +72,7 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=0.000003)
     parser.add_argument('--recall_priority', type=float, default=15, help='priority factor for the bce loss')
     parser.add_argument('--num_train_steps', type=int, default=30000)
-    parser.add_argument('--log_freq', type=int, default=1000)
+    parser.add_argument('--log_freq', type=int, default=10)
 
     parser.add_argument('--device', default='cuda:0', type=str)
     parser.add_argument('--num_workers', default=12, type=int)
@@ -77,8 +81,8 @@ if __name__ == '__main__':
 
     device = torch.device("cuda:0" if torch.cuda.is_available() and args.device == "cuda:0" else "cpu")
 
-    # dataset, model, criterion, descriptor = get_spectogram_dataset_model_and_criterion(args)
-    dataset, model, criterion, descriptor = get_waveform_dataset_and_model(args)
+    dataset, model, criterion, descriptor = get_spectogram_dataset_model_and_criterion(args)
+    # dataset, model, criterion, descriptor = get_waveform_dataset_and_model(args)
     model = model.to(device)
 
     dataloader = DataLoader(dataset, batch_size=args.batch_size, num_workers=args.num_workers)

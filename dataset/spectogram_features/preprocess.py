@@ -83,6 +83,7 @@ def calculate_scalar_of_tensor(x):
 
 
 def preprocess_data(audio_path_and_labels, output_dir, output_mean_std_file, preprocess_mode='logMel'):
+    print("Preprocessing collected data")
     os.makedirs(output_dir, exist_ok=True)
 
     all_features = []
@@ -122,7 +123,7 @@ def analyze_data_sample(audio_path, start_times, end_times, audio_name, plot_pat
     feature = multichannel_complex_to_log_mel(feature)
     first_channel_feature = feature[0]
     event_matrix = create_event_matrix(first_channel_feature.shape[0], start_times, end_times)
-    plot_mel_features(first_channel_feature, target=event_matrix, plot_path=plot_path, file_name=file_name)
+    plot_mel_features(first_channel_feature, target=event_matrix, plot_path=plot_path, file_name=audio_name)
 
     signal_time = multichannel_audio.shape[0]/cfg.working_sample_rate
     FPS = cfg.working_sample_rate / cfg.hop_size

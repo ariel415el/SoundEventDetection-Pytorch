@@ -25,7 +25,10 @@ def eval(model, dataloader, criterion, outputs_dir, iteration, device, limit_val
             output = model(inputs.to(device).float()).cpu()
 
         loss = criterion(output, target.float())
+        # waveform input ([599, 1, 9600]),outptut ([599, 1])
+        # spectogram input ([1, 1, 5761, 64]),outptut [1, 5760, 1])
 
+        # reshape as (num_signals, frames, channels)
         output = output.reshape(1,-1, 1)
         target = target.reshape(1,-1, 1)
 
