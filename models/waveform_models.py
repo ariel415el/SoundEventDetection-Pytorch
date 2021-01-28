@@ -6,9 +6,12 @@ import torch
 from utils.common import count_parameters, human_format
 
 
-class M3(nn.Module):
+class M5(nn.Module):
+    """
+    Model described in "VERY DEEP CONVOLUTIONAL NEURAL NETWORKS FOR RAW WAVEFORMS
+    """
     def __init__(self, classes_num):
-        super(M3, self).__init__()
+        super(M5, self).__init__()
         self.conv_block1 = Sequential(
             nn.Conv1d(audio_channels, 64, kernel_size=79, stride=4, padding=39),
             nn.BatchNorm1d(64),
@@ -51,7 +54,7 @@ class M3(nn.Module):
             nn.BatchNorm1d(512),
             nn.ReLU(),
         )
-        self.fc = nn.Linear(512, 1)
+        self.fc = nn.Linear(512, classes_num)
 
     def forward(self, x):
         # x: (b, c, frame_size)

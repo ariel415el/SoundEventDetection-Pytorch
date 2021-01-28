@@ -12,7 +12,12 @@ from dataset.waveform.waveform_configs import *
 
 
 class WaveformDataset(Dataset):
-    def __init__(self, data_dir, val_descriptor=0.15, balance_classes=False, augment_data=False, epochs=10):
+    """
+    This dataset allows training a detector on raw waveforms.
+    It splits all waveforms to frames of a defined size with some overlap and tags gives them a tag of one of the classes
+    or zero for no-event.
+    """
+    def __init__(self, data_dir, val_descriptor=0.15, balance_classes=False, augment_data=False, epochs=100):
         audio_paths_labels_and_names = get_film_clap_paths_and_labels(os.path.join(data_dir, 'raw'), time_margin)
         self.balance_classes = balance_classes
         self.augment_data = augment_data
@@ -69,16 +74,28 @@ class WaveformDataset(Dataset):
         waveform, label = self.frames[real_idx], self.frame_labels[real_idx]
 
         if self.augment_data:
-            number_of_augmentations = np.random.choice([0, 1, 2, 3], 1, p=[0.6, 0.25, 0.1, 0.05])[0]
-            for i in range(number_of_augmentations):
-                random_idx = np.random.randint(len(self.frames) + 1)
-
-                waveform += self.frames[random_idx]
-                label = max(label, self.frame_labels[random_idx])
-            waveform /= (number_of_augmentations + 1)
+            waveform, label = self.augment_mix_samples(waveform, label)
+            waveform, label = self.augment_add_noise(waveform, label)
 
         return waveform, label
 
+    def augment_mix_samples(self, waveform, label):
+        number_of_augmentations = np.random.choice([0, 1, 2, 3], 1, p=[0.6, 0.25, 0.1, 0.05])[0]
+        for i in range(number_of_augmentations):
+            random_idx = np.random.randint(len(self.frames))
+
+            waveform += self.frames[random_idx]
+            label = max(label, self.frame_labels[random_idx])
+        waveform /= (number_of_augmentations + 1)
+        return waveform, label
+
+    def augment_add_noise(self, waveform, label):
+        # TODO these number are fit to noise added to waveform and not spectogram
+        r = np.random.rand()
+        if r > 0.5:
+            noise_var = 0.001 + (r + 0.5) * (0.005 - 0.001)
+            waveform += np.random.normal(0, noise_var, size=waveform.shape)
+        return waveform, label
 
 if __name__ == '__main__':
     from dataset.dataset_utils import get_film_clap_paths_and_labels

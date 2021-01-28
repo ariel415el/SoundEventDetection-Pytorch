@@ -30,7 +30,7 @@ def get_film_clap_paths_and_labels(data_root, time_margin=0.1):
             result += [(soundfile_path, start_times, end_times, name)]
             num_claps += len(start_times)
             num_audio_files += 1
-        print(f"\t* {film_name} has {len(result) - dataset_sizes} samples")
+        print(f"\t- {film_name} has {len(result) - dataset_sizes} samples")
         dataset_sizes = len(result)
     print(f"\tFilm clap dataset contains {num_audio_files} audio files with {num_claps} clap incidents")
     return result
