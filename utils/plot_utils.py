@@ -2,6 +2,8 @@ import os
 import numpy as np
 from matplotlib import pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+import matplotlib
+matplotlib.use('Agg')
 
 
 def plot_waveform(ax, waveform, sample_rate):
@@ -15,7 +17,7 @@ def plot_waveform(ax, waveform, sample_rate):
     ax.set_ylabel('Amplitudes')
 
     xticks = np.arange(0, len(new_waveform), len(new_waveform) // 8)
-    xlabels = [f"Sec {x / new_sample_rate:.2f}s" for x in xticks]
+    xlabels = [f"{x / new_sample_rate:.2f}s" for x in xticks]
 
     ax.set_xticks(xticks)
     ax.set_xticklabels(xlabels)
@@ -101,3 +103,8 @@ def plot_mel_features(input, mode, output=None, target=None, file_name=None, plo
     fig.tight_layout()
     plt.savefig(plot_path)
     plt.close(fig)
+    plt.close()
+    plt.clf()
+    plt.close('all')
+    import gc
+    gc.collect()

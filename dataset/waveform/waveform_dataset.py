@@ -2,29 +2,53 @@ import os
 
 import numpy as np
 import torch
-from torch.utils.data import Dataset
-from tqdm import tqdm
 
 from dataset.spectogram_features.preprocess import read_multichannel_audio
 from dataset.dataset_utils import get_film_clap_paths_and_labels
-from dataset.waveform.waveform_configs import *
+from dataset.waveform import waveform_configs as cfg
 
 
+def split_to_frames_with_half_hop_size(waveform, start_times, end_times):
+    """
+    Splits the waveform to overlapping frames and taggs each frame if its covered up to some degree by an event
+    """
+    assert cfg.frame_size // 2 == cfg.hop_size
+    frames = []
+    labels = []
+    for center in np.arange(cfg.hop_size, waveform.shape[1] - cfg.hop_size + 1, step=cfg.hop_size):
+        frame = waveform[:, center - cfg.hop_size: center + cfg.hop_size]
+        label = np.any([t[0] * cfg.working_sample_rate - cfg.hop_size < center < t[1] * cfg.working_sample_rate + cfg.hop_size for t in
+                        zip(start_times, end_times)])
+        # label = num_event_samples_in_frame / cfg.frame_size >= cfg.min_event_percentage_in_positive_frame
+        frames.append(frame)
+        labels.append(label)
+    return frames, labels
 
-class WaveformDataset(Dataset):
+
+def get_start_indices_labesl(waveform_length, start_times, end_times):
+    """
+    Returns: a waveform_length size boolean array where the ith entry says wheter or not a frame starting from the ith
+    sample is covered by an event
+    """
+    label = np.zeros(waveform_length)
+    for start, end in zip(start_times, end_times):
+        event_first_start_index = int(start * cfg.working_sample_rate - cfg.frame_size * (1 - cfg.min_event_percentage_in_positive_frame))
+        event_last_start_index = int(end * cfg.working_sample_rate - cfg.frame_size * cfg.min_event_percentage_in_positive_frame)
+        label[event_first_start_index: event_last_start_index] = 1
+    return label
+
+
+class WaveformDataset:
     """
     This dataset allows training a detector on raw waveforms.
     It splits all waveforms to frames of a defined size with some overlap and tags gives them a tag of one of the classes
     or zero for no-event.
     """
-    def __init__(self, data_dir, val_descriptor=0.15, balance_classes=False, augment_data=False, epochs=100):
-        audio_paths_labels_and_names = get_film_clap_paths_and_labels(os.path.join(data_dir, 'raw'), time_margin)
+    def __init__(self, data_dir, val_descriptor=0.15, balance_classes=False, augment_data=False):
+        audio_paths_labels_and_names = get_film_clap_paths_and_labels(os.path.join(data_dir, 'raw'), cfg.time_margin)
         self.balance_classes = balance_classes
         self.augment_data = augment_data
-        self.epochs = epochs
 
-        self.frames = []
-        self.frame_labels = []
         self.val_samples_sets = []
         self.val_label_sets = []
         self.val_file_names = []
@@ -34,31 +58,44 @@ class WaveformDataset(Dataset):
         np.random.shuffle(audio_paths_labels_and_names)
         val_perc = int(len(audio_paths_labels_and_names) * val_descriptor)
 
-        num_frames = 0
-        num_event_frames = 0
-
+        # self.long_waveform = np.zeros((cfg.audio_channels, 0))
+        # self.all_start_indices_labels = np.zeros(0, dtype=bool)
+        # self.possible_start_indices = np.zeros(0, dtype=np.uint32)
+        self.long_waveform = []
+        self.all_start_indices_labels = []
+        self.possible_start_indices = []
+        frame_index = 0
         for i, (audio_path, start_times, end_times, audio_name) in enumerate(audio_paths_labels_and_names):
-            waveform = read_multichannel_audio(audio_path, target_fs=working_sample_rate)
+            waveform = read_multichannel_audio(audio_path, target_fs=cfg.working_sample_rate)
             waveform = waveform.T # -> (channels, samples)
-
-            frames = []
-            labels = []
-            for center in np.arange(hop_size, waveform.shape[1] - hop_size + 1, step=hop_size):
-                frame = waveform[:, center - hop_size: center + hop_size]
-                label = np.any([t[0] * working_sample_rate - hop_size < center < t[1] * working_sample_rate + hop_size for t in zip(start_times, end_times) ])
-                frames.append(frame)
-                labels.append(label)
-                if label:
-                    num_event_frames += 1
-                num_frames += 1
             if i < val_perc:
+                # Split wave form to overlapping frames and create labels for each
+                frames, labels = split_to_frames_with_half_hop_size(waveform, start_times, end_times)
                 self.val_samples_sets.append(frames)
                 self.val_label_sets.append(labels)
                 self.val_file_names.append(audio_name)
             else:
-                self.frames += frames
-                self.frame_labels += labels
-        print(f"\t- got {num_frames} fames. {num_event_frames} tagged as event")
+                # Store entire waveform so that frames can be later randomly cropped from it.
+                # self.long_waveform = np.concatenate((self.long_waveform, waveform), axis=1)
+                self.long_waveform.append(waveform)
+
+                # Store the correct label for each starting sample index of a frame
+                label_per_start_index = get_start_indices_labesl(waveform.shape[1], start_times, end_times).astype(bool)
+                # self.all_start_indices_labels = np.concatenate((self.all_start_indices_labels, label_per_start_index))
+                self.all_start_indices_labels.append(label_per_start_index)
+                # restrict the starting indices so that random crop are not taken over two different waveforms
+                possible_start_indices = np.arange(frame_index, frame_index + waveform.shape[1] - cfg.frame_size, dtype=np.uint32)
+                # self.possible_start_indices = np.concatenate((self.possible_start_indices, possible_start_indices))
+                self.possible_start_indices.append(possible_start_indices)
+
+        self.long_waveform = np.concatenate(self.long_waveform, axis=1)
+        self.all_start_indices_labels = np.concatenate(self.all_start_indices_labels)
+        self.possible_start_indices = np.concatenate(self.possible_start_indices)
+
+        np.random.shuffle(self.possible_start_indices)
+
+        print(f"\t- Train split: {len(self.possible_start_indices)} overlapping fames. ~{100*np.sum(self.all_start_indices_labels==1)/len(self.possible_start_indices):.1f}% tagged as event")
+        print(f"\t- Val split: {np.sum([ len(x) for x in self.val_label_sets])} frames. {np.sum([ np.sum(x) for x in self.val_label_sets])} tagged as event")
 
     def get_validation_sampler(self, max_validate_num):
         for i, (frames, labels, file_names) in enumerate(zip(self.val_samples_sets, self.val_label_sets, self.val_file_names)):
@@ -67,11 +104,13 @@ class WaveformDataset(Dataset):
             yield torch.tensor(frames), torch.tensor(labels), file_names
 
     def __len__(self):
-        return len(self.frames) * self.epochs
+        return len(self.possible_start_indices)
 
     def __getitem__(self, idx):
-        real_idx = idx % len(self.frames)
-        waveform, label = self.frames[real_idx], self.frame_labels[real_idx]
+        start_index = self.possible_start_indices[idx]
+
+        waveform = self.long_waveform[:, start_index + np.arange(cfg.frame_size)]
+        label = self.all_start_indices_labels[start_index]
 
         if self.augment_data:
             waveform, label = self.augment_mix_samples(waveform, label)
@@ -80,12 +119,11 @@ class WaveformDataset(Dataset):
         return waveform, label
 
     def augment_mix_samples(self, waveform, label):
-        number_of_augmentations = np.random.choice([0, 1, 2, 3], 1, p=[0.6, 0.25, 0.1, 0.05])[0]
+        number_of_augmentations = np.random.choice([0, 1, 2, 3], 1, p=[0.5, 0.3, 0.15, 0.05])[0]
         for i in range(number_of_augmentations):
-            random_idx = np.random.randint(len(self.frames))
-
-            waveform += self.frames[random_idx]
-            label = max(label, self.frame_labels[random_idx])
+            random_start_idx = np.random.choice(self.possible_start_indices)
+            waveform += self.long_waveform[:, random_start_idx + np.arange(cfg.frame_size)]
+            label = max(label, self.all_start_indices_labels[random_start_idx])
         waveform /= (number_of_augmentations + 1)
         return waveform, label
 
@@ -96,6 +134,7 @@ class WaveformDataset(Dataset):
             noise_var = 0.001 + (r + 0.5) * (0.005 - 0.001)
             waveform += np.random.normal(0, noise_var, size=waveform.shape)
         return waveform, label
+
 
 if __name__ == '__main__':
     from dataset.dataset_utils import get_film_clap_paths_and_labels

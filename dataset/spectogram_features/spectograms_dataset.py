@@ -29,7 +29,6 @@ class SpectogramDataset(Dataset):
         assert preprocessed_mode in ['logMel', 'Complex'], "Spectogram type should be either logmel or complex"
         assert not (preprocessed_mode == 'logMel' and augment_data), "Can't perform augmentation in logMel spectograms"
         self.preprocessed_mode = preprocessed_mode
-        self.random_state = np.random.RandomState()
         self.augment_data = augment_data
         self.train_crop_size = cfg.train_crop_size
 

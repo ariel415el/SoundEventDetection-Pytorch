@@ -24,8 +24,6 @@ def eval(model, dataloader, criterion, outputs_dir, iteration, device, limit_val
             output = model(input.to(device).float()).cpu()
 
         loss = criterion(output, target.float())
-        # waveform input ([599, 1, 9600]),outptut ([599, 1])
-        # spectogram input ([1, 1, 5761, 64]),outptut [1, 5760, 1])
 
         if len(input.shape) == 4:
             mode = 'Spectogram'
@@ -114,6 +112,7 @@ def train(model, data_loader, criterion, num_steps, lr, log_freq, outputs_dir, d
 
             val_losses, recal_sets, precision_sets, APs = eval(model, data_loader, criterion, outputs_dir, iteration=iterations,
                                                           device=device, limit_val_samples=3)
+
             plotter.report_validation_metrics(val_losses, recal_sets, precision_sets, APs, iterations)
             plotter.plot(outputs_dir)
 

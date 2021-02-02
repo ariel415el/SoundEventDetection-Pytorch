@@ -29,6 +29,15 @@ class M5(nn.Module):
             nn.MaxPool1d(4, 4)
         )
         self.conv_block3 = Sequential(
+            nn.Conv1d(64, 64, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm1d(64),
+            nn.ReLU(),
+            nn.Conv1d(64, 64, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm1d(64),
+            nn.ReLU(),
+            nn.MaxPool1d(4, 4)
+        )
+        self.conv_block4 = Sequential(
             nn.Conv1d(64, 128, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm1d(128),
             nn.ReLU(),
@@ -37,24 +46,15 @@ class M5(nn.Module):
             nn.ReLU(),
             nn.MaxPool1d(4, 4)
         )
-        self.conv_block4 = Sequential(
+        self.conv_block5 = Sequential(
             nn.Conv1d(128, 256, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm1d(256),
             nn.ReLU(),
             nn.Conv1d(256, 256, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm1d(256),
             nn.ReLU(),
-            nn.MaxPool1d(4, 4)
         )
-        self.conv_block5 = Sequential(
-            nn.Conv1d(256, 512, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm1d(512),
-            nn.ReLU(),
-            nn.Conv1d(512, 512, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm1d(512),
-            nn.ReLU(),
-        )
-        self.fc = nn.Linear(512, classes_num)
+        self.fc = nn.Linear(256, classes_num)
 
     def forward(self, x):
         # x: (b, c, frame_size)
