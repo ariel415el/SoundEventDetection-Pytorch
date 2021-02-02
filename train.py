@@ -4,7 +4,7 @@ import torch
 from torch import optim
 from utils.common import ProgressPlotter
 from utils.metric_utils import calculate_metrics
-from utils.plot_utils import plot_mel_features
+from utils.plot_utils import plot_sample_features
 from time import time
 import numpy as np
 
@@ -63,12 +63,12 @@ def eval(model, dataloader, criterion, outputs_dir, iteration, device, limit_val
         indices = np.argsort(values)
         for (name, idx) in named_indices:
             val_sample_idx = indices[idx]
-            plot_mel_features(debug_inputs[val_sample_idx],
-                              mode=mode,
-                              output=debug_outputs[val_sample_idx],
-                              target=debug_targets[val_sample_idx],
-                              file_name=debug_file_names[val_sample_idx] + f" {metric_name} {values[val_sample_idx]:.2f}",
-                              plot_path=os.path.join(outputs_dir, 'images', f"Iter-{iteration}",
+            plot_sample_features(debug_inputs[val_sample_idx],
+                                 mode=mode,
+                                 output=debug_outputs[val_sample_idx],
+                                 target=debug_targets[val_sample_idx],
+                                 file_name=debug_file_names[val_sample_idx] + f" {metric_name} {values[val_sample_idx]:.2f}",
+                                 plot_path=os.path.join(outputs_dir, 'images', f"Iter-{iteration}",
                                                     f"{metric_name}-{name}.png"))
 
     return losses, recal_sets, precision_sets, APs

@@ -246,7 +246,7 @@ def preprocess_tau_sed_data(data_dir, preprocess_mode, force_preprocess=False, f
     ambisonic_2019_data_dir = f"{data_dir}/Tau_sound_events_2019"
     audio_dir, meta_data_dir = ensure_tau_data(ambisonic_2019_data_dir, fold_name=fold_name)
 
-    processed_data_dir = os.path.join(ambisonic_2019_data_dir, f"processed_{dataset.spectogram_features.spectogram_configs.cfg_descriptor}")
+    processed_data_dir = os.path.join(ambisonic_2019_data_dir, 'processed', f"{dataset.spectogram_features.spectogram_configs.cfg_descriptor}")
     features_and_labels_dir = f"{processed_data_dir}/{preprocess_mode}-features_and_labels_{fold_name}"
     features_mean_std_file = f"{processed_data_dir}/{preprocess_mode}-features_mean_std_{fold_name}.pkl"
     if not os.path.exists(features_and_labels_dir) or force_preprocess:
@@ -255,7 +255,7 @@ def preprocess_tau_sed_data(data_dir, preprocess_mode, force_preprocess=False, f
                         output_mean_std_file=features_mean_std_file, preprocess_mode=preprocess_mode)
     else:
         print("Using existing mel features")
-    return features_and_labels_dir, features_mean_std_file, "TAU"
+    return features_and_labels_dir, features_mean_std_file
 
 
 def preprocess_film_clap_data(data_dir, preprocessed_mode, force_preprocess=False):
@@ -276,4 +276,4 @@ def preprocess_film_clap_data(data_dir, preprocessed_mode, force_preprocess=Fals
                         output_mean_std_file=features_mean_std_file, preprocess_mode=preprocessed_mode)
     else:
         print("Using existing mel features")
-    return features_and_labels_dir, features_mean_std_file, "FlimClap"
+    return features_and_labels_dir, features_mean_std_file

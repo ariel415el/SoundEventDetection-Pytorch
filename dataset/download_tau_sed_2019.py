@@ -39,9 +39,10 @@ def download_foa_data(data_dir, fold_name='eval'):
 
 
 def extract_foa_data(data_dir, output_dir, fold_name='eval'):
+    os.makedirs(output_dir, exist_ok=True)
     os.makedirs(data_dir, exist_ok=True)
-    subprocess.call(["unzip", os.path.join(data_dir,'metadata_eval.zip'), "-d", output_dir])
-    subprocess.call(["unzip", os.path.join(data_dir, 'foa_eval.zip'), "-d", output_dir])
+    subprocess.call(["unzip", os.path.join(data_dir,'metadata_eval'), "-d", output_dir])
+    subprocess.call(["unzip", os.path.join(data_dir, 'foa_eval'), "-d", output_dir])
 
     subprocess.call(f"cp -R {output_dir}/proj/asignal/DCASE2019/dataset/foa_eval -d {output_dir}/foa_eval".split(" "))
     shutil.rmtree(f"{output_dir}/proj")

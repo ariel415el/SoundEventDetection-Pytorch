@@ -4,7 +4,6 @@ import numpy as np
 import torch
 
 from dataset.spectogram_features.preprocess import read_multichannel_audio
-from dataset.dataset_utils import get_film_clap_paths_and_labels
 from dataset.waveform import waveform_configs as cfg
 
 
@@ -44,8 +43,7 @@ class WaveformDataset:
     It splits all waveforms to frames of a defined size with some overlap and tags gives them a tag of one of the classes
     or zero for no-event.
     """
-    def __init__(self, data_dir, val_descriptor=0.15, balance_classes=False, augment_data=False):
-        audio_paths_labels_and_names = get_film_clap_paths_and_labels(os.path.join(data_dir, 'raw'), cfg.time_margin)
+    def __init__(self, audio_paths_labels_and_names, val_descriptor=0.15, balance_classes=False, augment_data=False):
         self.balance_classes = balance_classes
         self.augment_data = augment_data
 
@@ -54,7 +52,7 @@ class WaveformDataset:
         self.val_file_names = []
         print("WaveformDataset:")
         print("\t- Loading samples into memory... ")
-
+        # audio_paths_labels_and_names = audio_paths_labels_and_names[:50]
         np.random.shuffle(audio_paths_labels_and_names)
         val_perc = int(len(audio_paths_labels_and_names) * val_descriptor)
 
@@ -138,7 +136,26 @@ class WaveformDataset:
 
 if __name__ == '__main__':
     from dataset.dataset_utils import get_film_clap_paths_and_labels
-    data = get_film_clap_paths_and_labels('/home/ariel/projects/sound/data/Film_take_clap/raw', time_margin=0.1)
-    dataset = WaveformDataset(data)
-    print('done')
-    x =1
+    dataset = WaveformDataset('/home/ariel/projects/sound/data/FilmClap')
+    x = dataset[100]
+    y = dataset[10000]
+    z = dataset[10000000]
+    import matplotlib.pyplot as plt
+    w = 0
+    z = 0
+    for i in range(len(dataset)):
+        frame, label = dataset[i]
+        if label and z < 5:
+            print(frame.shape)
+            plt.plot(range(len(frame[0])), frame[0], c='r')
+            plt.savefig(f"event{z}.png")
+            plt.clf()
+            z += 1
+        elif not label and w < 5:
+            print(frame.shape)
+            plt.plot(range(len(frame[0])), frame[0], c='r')
+            plt.savefig(f"no-event{w}.png")
+            plt.clf()
+            w += 1
+        if z > 5 and w >5:
+            break

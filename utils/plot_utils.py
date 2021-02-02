@@ -63,7 +63,7 @@ def add_colorbar_to_axs(fig, ax, colorbar):
     fig.colorbar(colorbar, cax=cax, orientation='vertical')
 
 
-def plot_mel_features(input, mode, output=None, target=None, file_name=None, plot_path=None):
+def plot_sample_features(input, mode, output=None, target=None, file_name=None, plot_path=None):
     os.makedirs(os.path.dirname(plot_path), exist_ok=True)
     num_plots = 1
     if output is not None:
@@ -76,12 +76,11 @@ def plot_mel_features(input, mode, output=None, target=None, file_name=None, plo
     if file_name:
         fig.suptitle(f"Sample name: {file_name}")
 
-    input = input.mean(0)
-    if mode == 'Spectogram':
-        from dataset.spectogram_features.spectogram_configs import mel_bins, frames_per_second, classes_num
+    input = input.mean(0) # Mean over channels
+    if mode.lower() == 'spectogram':
+        from dataset.spectogram_features.spectogram_configs import frames_per_second
         colorbar = plot_spectogram(axs[0], input, frames_per_second)
         add_colorbar_to_axs(fig, axs[0], colorbar)
-
     else: # mode == 'Waveform
         from dataset.waveform.waveform_configs import working_sample_rate, hop_size
         frames_per_second = working_sample_rate // hop_size
