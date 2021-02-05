@@ -2,7 +2,8 @@ import argparse
 import os
 from models import *
 from dataset.spectogram_features import spectogram_configs as cfg
-from dataset.spectogram_features.preprocess import multichannel_stft, multichannel_complex_to_log_mel, read_multichannel_audio
+from dataset.spectogram_features.preprocess import multichannel_stft, multichannel_complex_to_log_mel
+from dataset.dataset_utils import read_multichannel_audio
 from utils import plot_debug_image
 
 if __name__ == '__main__':

@@ -84,7 +84,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Example of parser. ')
 
     # Traininng
-    parser.add_argument('--dataset_name', type=str, default='TAU', help='FilmClap or TAU')
+    parser.add_argument('--dataset_name', type=str, default='FilmClap', help='FilmClap or TAU')
     parser.add_argument('--train_features', type=str, default='Waveform', help='Spectogram or Waveform')
     parser.add_argument('--preprocess_mode', type=str, default='Complex', help='logMel or Complex; relevant only for Spectogram features')
     parser.add_argument('--force_preprocess', action='store_true', default=False, help='relevant only for Spectogram features')
@@ -93,7 +93,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset_dir', type=str, default='../data', help='Directory of dataset.')
     parser.add_argument('--outputs_root', type=str, default='training_dir')
     parser.add_argument('--ckpt', type=str, default='')
-    parser.add_argument('--val_descriptor', default=0.2, help='float for percentage string for specifying fold substring')
+    parser.add_argument('--val_descriptor', default=0.15, help='float for percentage string for specifying fold substring')
     parser.add_argument('--train_tag', type=str, default='')
 
     # Training tricks

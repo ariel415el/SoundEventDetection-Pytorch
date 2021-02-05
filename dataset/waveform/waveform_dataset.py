@@ -3,21 +3,27 @@ import os
 import numpy as np
 import torch
 
-from dataset.spectogram_features.preprocess import read_multichannel_audio
 from dataset.waveform import waveform_configs as cfg
+from dataset.dataset_utils import read_multichannel_audio
 
 
-def split_to_frames_with_half_hop_size(waveform, start_times, end_times):
+def split_to_frames_with_hop_size(waveform, start_times, end_times):
     """
     Splits the waveform to overlapping frames and taggs each frame if its covered up to some degree by an event
     """
-    assert cfg.frame_size // 2 == cfg.hop_size
     frames = []
     labels = []
-    for center in np.arange(cfg.hop_size, waveform.shape[1] - cfg.hop_size + 1, step=cfg.hop_size):
-        frame = waveform[:, center - cfg.hop_size: center + cfg.hop_size]
-        label = np.any([t[0] * cfg.working_sample_rate - cfg.hop_size < center < t[1] * cfg.working_sample_rate + cfg.hop_size for t in
-                        zip(start_times, end_times)])
+    half_frame_size = cfg.frame_size // 2
+    for center in np.arange(half_frame_size, waveform.shape[1] - half_frame_size + 1, step=cfg.hop_size):
+        frame = waveform[:, center - half_frame_size: center + half_frame_size]
+        label = False
+        for s, e in zip(start_times, end_times):
+            min_sample = max(s * cfg.working_sample_rate, center - half_frame_size)
+            max_sample = min(e * cfg.working_sample_rate, center + half_frame_size)
+            coverage = (max_sample - min_sample) / ((e - s) * cfg.working_sample_rate)
+            label = label or coverage > cfg.min_event_percentage_in_positive_frame
+        # label = np.any([t[0] * cfg.working_sample_rate - half_frame_size < center < t[1] * cfg.working_sample_rate + half_frame_size for t in
+        #                 zip(start_times, end_times)])
         # label = num_event_samples_in_frame / cfg.frame_size >= cfg.min_event_percentage_in_positive_frame
         frames.append(frame)
         labels.append(label)
@@ -52,7 +58,6 @@ class WaveformDataset:
         self.val_file_names = []
         print("WaveformDataset:")
         print("\t- Loading samples into memory... ")
-        # audio_paths_labels_and_names = audio_paths_labels_and_names[:50]
         np.random.shuffle(audio_paths_labels_and_names)
         val_perc = int(len(audio_paths_labels_and_names) * val_descriptor)
 
@@ -63,12 +68,13 @@ class WaveformDataset:
         self.all_start_indices_labels = []
         self.possible_start_indices = []
         frame_index = 0
+
         for i, (audio_path, start_times, end_times, audio_name) in enumerate(audio_paths_labels_and_names):
             waveform = read_multichannel_audio(audio_path, target_fs=cfg.working_sample_rate)
             waveform = waveform.T # -> (channels, samples)
             if i < val_perc:
                 # Split wave form to overlapping frames and create labels for each
-                frames, labels = split_to_frames_with_half_hop_size(waveform, start_times, end_times)
+                frames, labels = split_to_frames_with_hop_size(waveform, start_times, end_times)
                 self.val_samples_sets.append(frames)
                 self.val_label_sets.append(labels)
                 self.val_file_names.append(audio_name)
@@ -135,27 +141,41 @@ class WaveformDataset:
 
 
 if __name__ == '__main__':
-    from dataset.dataset_utils import get_film_clap_paths_and_labels
-    dataset = WaveformDataset('/home/ariel/projects/sound/data/FilmClap')
-    x = dataset[100]
-    y = dataset[10000]
-    z = dataset[10000000]
+    from dataset.waveform.waveform_dataset import WaveformDataset
+    from dataset.dataset_utils import get_film_clap_paths_and_labels, get_tau_sed_paths_and_labels, \
+        read_multichannel_audio
+    from dataset.download_tau_sed_2019 import ensure_tau_data
+    # audio_dir, meta_data_dir = ensure_tau_data('/home/ariel/projects/sound/data/Tau_sound_events_2019', fold_name='eval')
+    # audio_paths_labels_and_names = get_tau_sed_paths_and_labels(audio_dir, meta_data_dir)
+    # dataset = WaveformDataset(audio_paths_labels_and_names)
+    dataset = WaveformDataset(get_film_clap_paths_and_labels('/home/ariel/projects/sound/data/FilmClap/raw', time_margin=cfg.time_margin), val_descriptor=1.0)
     import matplotlib.pyplot as plt
+    import soundfile
+    import matplotlib as mpl
+
+    mpl.rcParams['savefig.pad_inches'] = 0
     w = 0
     z = 0
-    for i in range(len(dataset)):
-        frame, label = dataset[i]
-        if label and z < 5:
-            print(frame.shape)
-            plt.plot(range(len(frame[0])), frame[0], c='r')
-            plt.savefig(f"event{z}.png")
-            plt.clf()
-            z += 1
-        elif not label and w < 5:
-            print(frame.shape)
-            plt.plot(range(len(frame[0])), frame[0], c='r')
-            plt.savefig(f"no-event{w}.png")
-            plt.clf()
-            w += 1
-        if z > 5 and w >5:
-            break
+    for frames, labels, filename in zip(dataset.val_samples_sets, dataset.val_label_sets, dataset.val_file_names):
+        k = 0
+        dirname = filename.split("_")[0]
+        dir_path = os.path.join("debug", dirname, filename)
+        os.makedirs(dir_path, exist_ok=True)
+        N = len(labels)
+        w += 1
+        for idx in range(N):
+            frame, label = frames[idx], labels[idx]
+            if label:
+                k +=1
+                ax = plt.axes([0, 0, 1, 1], frameon=False)
+                ax.get_xaxis().set_visible(False)
+                ax.get_yaxis().set_visible(False)
+                plt.autoscale(tight=True)
+                plt.plot(range(len(frame[0])), frame[0], c='r')
+                plt.ylim(-0.5,0.5)
+                name = f"{filename}_event-{idx}-{(idx+1) * cfg.hop_size / cfg.working_sample_rate}s"
+                plt.savefig(os.path.join(dir_path, name + ".png"))
+                plt.clf()
+                soundfile.write(os.path.join(dir_path , name + ".wav"), frame[0], cfg.working_sample_rate)
+                z += 1
+    print(f"done {w} files and {z} events")

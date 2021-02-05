@@ -1,8 +1,10 @@
 import os
 import pickle
-from math import ceil
+
+import librosa
 import numpy as np
 import pandas as pd
+import soundfile
 
 from dataset.spectogram_features import spectogram_configs as cfg
 
@@ -57,21 +59,27 @@ def get_tau_sed_paths_and_labels(audio_dir, labels_data_dir):
     return results
 
 
-def split_to_frames(signal, frame_length, overlap_length):
+def read_multichannel_audio(audio_path, target_fs=None):
     """
-    Split the signal into overlapping frames. pads the signal if necessary for division.
-    Here a new frame of size "frame_length" samples starts every "overlap_length" samples
-    :param frame_length: how many samples in each frames
-    :param overlap_length: overlapping samples
-    :return: numpy array of size num_frames, frame_length
+    Read the audio samples in files and resample them to fit the desired sample ratre
     """
-    num_frames = ceil(len(signal) / float(overlap_length))
-    pad_size = (num_frames - 1) * overlap_length + frame_length - len(signal)
-    padded_signal = np.append(signal, np.zeros(pad_size))
+    (multichannel_audio, sample_rate) = soundfile.read(audio_path)
+    if len(multichannel_audio.shape) == 1:
+        multichannel_audio = multichannel_audio.reshape(-1, 1)
+    if multichannel_audio.shape[1] < cfg.audio_channels:
+        print(multichannel_audio.shape[1])
+        multichannel_audio = np.repeat(multichannel_audio.mean(1).reshape(-1, 1), cfg.audio_channels, axis=1)
+    elif cfg.audio_channels == 1:
+        multichannel_audio = multichannel_audio.mean(1).reshape(-1, 1)
+    elif multichannel_audio.shape[1] > cfg.audio_channels:
+        multichannel_audio = multichannel_audio[:, :cfg.audio_channels]
 
-    # extract overlapping frames:
-    frame_offsets = np.tile(np.arange(0, num_frames) * overlap_length, (frame_length, 1)).T
-    frame_indices = np.tile(np.arange(0, frame_length), (num_frames, 1))
-    frame_indices += frame_offsets
+    if target_fs is not None and sample_rate != target_fs:
 
-    return padded_signal[frame_indices]
+        channels_num = multichannel_audio.shape[1]
+
+        multichannel_audio = np.array(
+            [librosa.resample(multichannel_audio[:, i], orig_sr=sample_rate, target_sr=target_fs) for i in range(channels_num)]
+        ).T
+
+    return multichannel_audio

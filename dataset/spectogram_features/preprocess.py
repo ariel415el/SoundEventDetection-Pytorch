@@ -7,6 +7,7 @@ import soundfile
 from tqdm import tqdm
 
 import dataset.spectogram_features.spectogram_configs as cfg
+from dataset.dataset_utils import read_multichannel_audio
 from utils.plot_utils import plot_sample_features
 
 MEL_FILTER_BANK_MATRIX = librosa.filters.mel(
@@ -15,32 +16,6 @@ MEL_FILTER_BANK_MATRIX = librosa.filters.mel(
     n_mels=cfg.mel_bins,
     fmin=cfg.mel_min_freq,
     fmax=cfg.mel_max_freq).T
-
-
-def read_multichannel_audio(audio_path, target_fs=None):
-    """
-    Read the audio samples in files and resample them to fit the desired sample ratre
-    """
-    (multichannel_audio, sample_rate) = soundfile.read(audio_path)
-    if len(multichannel_audio.shape) == 1:
-        multichannel_audio = multichannel_audio.reshape(-1, 1)
-    if multichannel_audio.shape[1] < cfg.audio_channels:
-        print(multichannel_audio.shape[1])
-        multichannel_audio = np.repeat(multichannel_audio.mean(1).reshape(-1, 1), cfg.audio_channels, axis=1)
-    elif cfg.audio_channels == 1:
-        multichannel_audio = multichannel_audio.mean(1).reshape(-1, 1)
-    elif multichannel_audio.shape[1] > cfg.audio_channels:
-        multichannel_audio = multichannel_audio[:, :cfg.audio_channels]
-
-    if target_fs is not None and sample_rate != target_fs:
-
-        channels_num = multichannel_audio.shape[1]
-
-        multichannel_audio = np.array(
-            [librosa.resample(multichannel_audio[:, i], orig_sr=sample_rate, target_sr=target_fs) for i in range(channels_num)]
-        ).T
-
-    return multichannel_audio
 
 
 def multichannel_stft(multichannel_signal):

@@ -1,5 +1,5 @@
-from dataset.spectogram_features.preprocess import read_multichannel_audio, \
-    multichannel_stft, multichannel_complex_to_log_mel
+from dataset.spectogram_features.preprocess import multichannel_stft, multichannel_complex_to_log_mel
+from dataset.dataset_utils import read_multichannel_audio
 from dataset.spectogram_features import spectogram_configs as cfg
 import matplotlib.pyplot as plt
 import numpy as np
