@@ -148,7 +148,7 @@ if __name__ == '__main__':
     # audio_dir, meta_data_dir = ensure_tau_data('/home/ariel/projects/sound/data/Tau_sound_events_2019', fold_name='eval')
     # audio_paths_labels_and_names = get_tau_sed_paths_and_labels(audio_dir, meta_data_dir)
     # dataset = WaveformDataset(audio_paths_labels_and_names)
-    dataset = WaveformDataset(get_film_clap_paths_and_labels('/home/ariel/projects/sound/data/FilmClap/raw', time_margin=cfg.time_margin), val_descriptor=1.0)
+    dataset = WaveformDataset(get_film_clap_paths_and_labels('/home/ariel/projects/sound/data/FilmClap', time_margin=cfg.time_margin), val_descriptor=1.0)
     import matplotlib.pyplot as plt
     import soundfile
     import matplotlib as mpl
@@ -173,7 +173,7 @@ if __name__ == '__main__':
                 plt.autoscale(tight=True)
                 plt.plot(range(len(frame[0])), frame[0], c='r')
                 plt.ylim(-0.5,0.5)
-                name = f"{filename}_event-{idx}-{(idx+1) * cfg.hop_size / cfg.working_sample_rate}s"
+                name = f"{filename}_event-{idx}-{(cfg.frame_size // 2 + idx *cfg.hop_size) / cfg.working_sample_rate}s"
                 plt.savefig(os.path.join(dir_path, name + ".png"))
                 plt.clf()
                 soundfile.write(os.path.join(dir_path , name + ".wav"), frame[0], cfg.working_sample_rate)

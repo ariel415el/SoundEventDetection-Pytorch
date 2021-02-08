@@ -263,7 +263,7 @@ def preprocess_film_clap_data(data_dir, preprocessed_mode, force_preprocess=Fals
     Preprocess and Creates a data generator for the film_clap dataset
     """
     film_clap_dir = os.path.join(data_dir, 'FilmClap')
-    audio_and_labels_dir = os.path.join(film_clap_dir, 'raw')
+    audio_and_labels_dir = os.path.join(film_clap_dir)
     cfg.cfg_descriptor += f"_tm-{cfg.time_margin}"
     if not os.path.exists(film_clap_dir):
         raise Exception("You should get you own dataset...")

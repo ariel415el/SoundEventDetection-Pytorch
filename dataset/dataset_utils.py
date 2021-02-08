@@ -1,5 +1,6 @@
 import os
-import pickle
+import json
+from collections import defaultdict
 
 import librosa
 import numpy as np
@@ -16,24 +17,24 @@ def get_film_clap_paths_and_labels(data_root, time_margin=0.1):
     result = []
     num_claps = 0
     num_audio_files = 0
-    dataset_sizes = 0
+    files_per_film = defaultdict(lambda:0)
+    path_to_label = json.load(open(os.path.join(data_root, 'paths_and_labels_fixed_Meron.txt')))
     print("Collecting Film-clap dataset")
-    for film_name in os.listdir(data_root):
-        dirpath = os.path.join(data_root, film_name)
-        meta_data_pickle = os.path.join(dirpath, f"{film_name}_parsed.pkl")
+    for sound_path in path_to_label:
+        soundfile_name = os.path.splitext(os.path.basename(sound_path))[0]
+        film_name = os.path.basename(os.path.dirname(sound_path))
+        name = f"{film_name}_{soundfile_name}"
+        evemt_centers_list = path_to_label[sound_path]
+        assert os.path.exists(sound_path), sound_path
+        start_times = [e - time_margin for e in evemt_centers_list]
+        end_times = [e + time_margin for e in evemt_centers_list]
+        result += [(sound_path, start_times, end_times, name)]
+        num_claps += len(start_times)
+        num_audio_files += 1
+        files_per_film[film_name] += 1
 
-        meta_data = pickle.load(open(meta_data_pickle, 'rb'))
-        for sounfile_name, evetnts_list in meta_data.items():
-            soundfile_path = os.path.join(dirpath, sounfile_name)
-            assert os.path.exists(soundfile_path), soundfile_path
-            start_times = [e - time_margin for e in evetnts_list]
-            end_times = [e + time_margin for e in evetnts_list]
-            name = f"{film_name}_{os.path.splitext(os.path.basename(soundfile_path))[0]}"
-            result += [(soundfile_path, start_times, end_times, name)]
-            num_claps += len(start_times)
-            num_audio_files += 1
-        print(f"\t- {film_name} has {len(result) - dataset_sizes} samples")
-        dataset_sizes = len(result)
+    for film_name in files_per_film:
+        print(f"\t- {film_name} has {files_per_film[film_name]}")
     print(f"\tFilm clap dataset contains {num_audio_files} audio files with {num_claps} clap incidents")
     return result
 

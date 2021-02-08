@@ -41,7 +41,9 @@ def get_spectogram_dataset_model_and_criterion(args):
     # define the crieterion
     criterion = WeightedBCE(recall_factor=args.recall_priority, multi_frame=True)
 
-    return dataset, model, criterion, cfg.cfg_descriptor
+    full_descriptor = f"{args.preprocess_mode}-{cfg.cfg_descriptor}"
+
+    return dataset, model, criterion, full_descriptor
 
 
 def get_waveform_dataset_and_model(args):
@@ -55,7 +57,7 @@ def get_waveform_dataset_and_model(args):
         audio_dir, meta_data_dir = ensure_tau_data(f"{args.dataset_dir}/Tau_sound_events_2019", fold_name='eval')
         audio_paths_labels_and_names = get_tau_sed_paths_and_labels(audio_dir, meta_data_dir)
     elif args.dataset_name.lower() == "filmclap":
-        audio_paths_labels_and_names = get_film_clap_paths_and_labels(os.path.join(args.dataset_dir, 'FilmClap', 'raw'), time_margin)
+        audio_paths_labels_and_names = get_film_clap_paths_and_labels(os.path.join(args.dataset_dir, 'FilmClap'), time_margin)
     else:
         raise ValueError(f"Only tau and filmclap datasets are supported, '{args.dataset_name}' given")
 
@@ -84,9 +86,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Example of parser. ')
 
     # Traininng
-    parser.add_argument('--dataset_name', type=str, default='FilmClap', help='FilmClap or TAU')
-    parser.add_argument('--train_features', type=str, default='Waveform', help='Spectogram or Waveform')
-    parser.add_argument('--preprocess_mode', type=str, default='Complex', help='logMel or Complex; relevant only for Spectogram features')
+    parser.add_argument('--dataset_name', type=str, default='TAU', help='FilmClap or TAU')
+    parser.add_argument('--train_features', type=str, default='Spectogram', help='Spectogram or Waveform')
+    parser.add_argument('--preprocess_mode', type=str, default='logMel', help='logMel or Complex; relevant only for Spectogram features')
     parser.add_argument('--force_preprocess', action='store_true', default=False, help='relevant only for Spectogram features')
 
     # Train
@@ -103,10 +105,10 @@ if __name__ == '__main__':
     parser.add_argument('--recall_priority', type=float, default=10, help='priority factor for the bce loss')
 
     # Hyper parameters
-    parser.add_argument('--batch_size', type=int, default=128)
-    parser.add_argument('--lr', type=float, default=0.0000005)
+    parser.add_argument('--batch_size', type=int, default=64)
+    parser.add_argument('--lr', type=float, default=0.001)
     parser.add_argument('--num_train_steps', type=int, default=1e+6)
-    parser.add_argument('--log_freq', type=int, default=1000)
+    parser.add_argument('--log_freq', type=int, default=500)
 
     # Infrastructure
     parser.add_argument('--device', default='cuda:0', type=str)
