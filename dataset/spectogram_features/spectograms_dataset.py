@@ -2,7 +2,6 @@ import librosa
 import numpy as np
 import os
 import pickle
-from random import shuffle
 
 import torch
 from torch.utils.data import Dataset
@@ -12,6 +11,8 @@ import dataset.spectogram_features.spectogram_configs as cfg
 from dataset.dataset_utils import get_film_clap_paths_and_labels, get_tau_sed_paths_and_labels
 from dataset.download_tau_sed_2019 import ensure_tau_data
 from dataset.spectogram_features.preprocess import preprocess_data, multichannel_complex_to_log_mel
+from random import shuffle
+
 
 class SpectogramDataset(Dataset):
     def __init__(self, features_and_labels_dir, mean_std_file, val_descriptor,
@@ -37,7 +38,8 @@ class SpectogramDataset(Dataset):
         self.mean = d['mean']
         self.std = d['std']
 
-        train_feature_paths, self.val_feature_paths = _split_train_val(features_and_labels_dir, val_descriptor)
+        all_paths = [os.path.join(features_and_labels_dir, x) for x in os.listdir(features_and_labels_dir)]
+        train_feature_paths, self.val_feature_paths = split_train_val(all_paths, val_descriptor)
 
         self.train_features, self.train_event_matrix, self.train_start_indices = _read_train_data_to_memory(train_feature_paths,
                                                                                                             cfg.train_crop_size,
@@ -131,26 +133,6 @@ class SpectogramDataset(Dataset):
         feature /= (number_of_augmentations + 1)
 
         return feature, event_matrix
-
-
-def _split_train_val(data_dir, val_descriptor):
-    # Split to train, test
-    feature_names = [os.path.join(data_dir, x) for x in os.listdir(data_dir)]
-    if type(val_descriptor) == float:
-        shuffle(feature_names)
-        val_split = int(len(feature_names) * val_descriptor)
-        train_feature_names = feature_names[val_split:]
-        validate_feature_names = feature_names[:val_split]
-    else:
-        train_feature_names = []
-        validate_feature_names = []
-        for name in feature_names:
-            if val_descriptor in name:
-                validate_feature_names.append(name)
-            else:
-                train_feature_names.append(name)
-
-    return train_feature_names, validate_feature_names
 
 
 def _read_train_data_to_memory(train_feature_paths, crop_size, balance_classes=False):
@@ -277,3 +259,22 @@ def preprocess_film_clap_data(data_dir, preprocessed_mode, force_preprocess=Fals
     else:
         print("Using existing mel features")
     return features_and_labels_dir, features_mean_std_file
+
+
+def split_train_val(feature_names, val_descriptor):
+    # Split to train, test
+    if type(val_descriptor) == float:
+        shuffle(feature_names)
+        val_split = int(len(feature_names) * val_descriptor)
+        train_feature_names = feature_names[val_split:]
+        validate_feature_names = feature_names[:val_split]
+    else:
+        train_feature_names = []
+        validate_feature_names = []
+        for name in feature_names:
+            if val_descriptor in name:
+                validate_feature_names.append(name)
+            else:
+                train_feature_names.append(name)
+
+    return train_feature_names, validate_feature_names

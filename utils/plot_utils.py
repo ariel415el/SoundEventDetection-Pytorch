@@ -87,6 +87,11 @@ def plot_sample_features(input, mode, output=None, target=None, file_name=None, 
         waveform = input[:,:hop_size].flatten()
         plot_waveform(axs[0], waveform, working_sample_rate)
 
+        # shrink plot to fit labels plots with colorbar on the right
+        divider = make_axes_locatable(axs[0])
+        cax = divider.append_axes('right', size='1%', pad=0.01)
+
+
     if output is not None:
         colorbar = plot_classification_matrix(axs[1], output, frames_per_second)
         axs[1].set_title("Predicted sound events", color='b')
