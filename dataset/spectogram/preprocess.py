@@ -6,7 +6,7 @@ import numpy as np
 import soundfile
 from tqdm import tqdm
 
-import dataset.spectogram_features.spectogram_configs as cfg
+import dataset.spectogram.spectogram_configs as cfg
 from dataset.dataset_utils import read_multichannel_audio
 from utils.plot_utils import plot_sample_features
 
@@ -90,7 +90,7 @@ def analyze_data_sample(audio_path, start_times, end_times, audio_name, plot_pat
     """
     A debug function that plots a single sample and analyzes how the spectogram configuration affect the feature final size
     """
-    from dataset.spectogram_features.spectograms_dataset import create_event_matrix
+    from dataset.spectogram.spectograms_dataset import create_event_matrix
     org_multichannel_audio, org_sample_rate = soundfile.read(audio_path)
 
     multichannel_audio = read_multichannel_audio(audio_path=audio_path, target_fs=cfg.working_sample_rate)

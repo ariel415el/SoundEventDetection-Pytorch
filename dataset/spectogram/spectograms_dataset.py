@@ -6,11 +6,11 @@ import pickle
 import torch
 from torch.utils.data import Dataset
 
-import dataset.spectogram_features.spectogram_configs
-import dataset.spectogram_features.spectogram_configs as cfg
+import dataset.spectogram.spectogram_configs
+import dataset.spectogram.spectogram_configs as cfg
 from dataset.dataset_utils import get_film_clap_paths_and_labels, get_tau_sed_paths_and_labels
 from dataset.download_tau_sed_2019 import ensure_tau_data
-from dataset.spectogram_features.preprocess import preprocess_data, multichannel_complex_to_log_mel
+from dataset.spectogram.preprocess import preprocess_data, multichannel_complex_to_log_mel
 from random import shuffle
 
 
@@ -53,7 +53,7 @@ class SpectogramDataset(Dataset):
               f"totaling {len(np.concatenate(self.val_event_matrix_list, axis=0)) / cfg.frames_per_second:.1f} seconds")
 
     def __len__(self):
-        return len(self.train_event_matrix)
+        return len(self.train_start_indices)
 
     def __getitem__(self, idx):
         '''
@@ -249,8 +249,8 @@ def preprocess_film_clap_data(data_dir, preprocessed_mode, force_preprocess=Fals
     cfg.cfg_descriptor += f"_tm-{cfg.time_margin}"
     if not os.path.exists(film_clap_dir):
         raise Exception("You should get you own dataset...")
-    features_and_labels_dir = f"{film_clap_dir}/processed/{dataset.spectogram_features.spectogram_configs.cfg_descriptor}/{preprocessed_mode}-features_and_labels"
-    features_mean_std_file = f"{film_clap_dir}/processed/{dataset.spectogram_features.spectogram_configs.cfg_descriptor}/{preprocessed_mode}-features_mean_std.pkl"
+    features_and_labels_dir = f"{film_clap_dir}/processed/{dataset.spectogram.spectogram_configs.cfg_descriptor}/{preprocessed_mode}-features_and_labels"
+    features_mean_std_file = f"{film_clap_dir}/processed/{dataset.spectogram.spectogram_configs.cfg_descriptor}/{preprocessed_mode}-features_mean_std.pkl"
     if not os.path.exists(features_and_labels_dir) or force_preprocess:
         print("preprocessing raw data")
         audio_paths_and_labels = get_film_clap_paths_and_labels(audio_and_labels_dir, time_margin=cfg.time_margin)

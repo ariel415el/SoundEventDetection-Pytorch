@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from dataset.spectogram_features.spectogram_configs import audio_channels, working_sample_rate, mel_bins, hop_size, classes_num
+from dataset.spectogram.spectogram_configs import audio_channels, working_sample_rate, mel_bins, hop_size, classes_num
 from utils.common import count_parameters, human_format
 
 DEFAULT_CHANNEL_AND_POOL=[(64,2), (128,2), (256,2), (512,1)]

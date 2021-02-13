@@ -85,43 +85,46 @@ def train(model, data_loader, criterion, num_steps, lr, log_freq, outputs_dir, d
     optimizer = optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999), eps=1e-08, weight_decay=0., amsgrad=True)
 
     iterations = 0
-    tqdm_bar = tqdm(data_loader)
+    epoch = 0
     training_start_time = time()
-    for (batch_features, event_labels) in tqdm_bar:
-        # forward
-        model.train()
-        batch_outputs = model(batch_features.to(device).float())
-        loss = criterion(batch_outputs, event_labels.to(device).float())
+    tqdm_bar = tqdm(data_loader)
+    while iterations < num_steps:
+        for (batch_features, event_labels) in tqdm_bar:
+            # forward
+            model.train()
+            batch_outputs = model(batch_features.to(device).float())
+            loss = criterion(batch_outputs, event_labels.to(device).float())
 
-        # Backward
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            # Backward
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-        plotter.report_train_loss(loss.item())
-        iterations += 1
+            plotter.report_train_loss(loss.item())
+            iterations += 1
 
-        if iterations % lr_decay_freq == 0:
-            for param_group in optimizer.param_groups:
-                param_group['lr'] *= 0.99
+            if iterations % lr_decay_freq == 0:
+                for param_group in optimizer.param_groups:
+                    param_group['lr'] *= 0.997
 
-        if iterations % log_freq == 0:
-            im_sec = iterations * data_loader.batch_size / (time() - training_start_time)
-            tqdm_bar.set_description(
-                f"step: {iterations}, loss: {loss.item():.2f}, im/sec: {im_sec:.1f}, lr: {optimizer.param_groups[0]['lr']:.8f}")
+            if iterations % log_freq == 0:
+                im_sec = iterations * data_loader.batch_size / (time() - training_start_time)
+                tqdm_bar.set_description(
+                    f"epoch: {epoch}, step: {iterations}, loss: {loss.item():.2f}, im/sec: {im_sec:.1f}, lr: {optimizer.param_groups[0]['lr']:.8f}")
 
-            val_losses, recal_sets, precision_sets, APs = eval(model, data_loader, criterion, outputs_dir, iteration=iterations,
-                                                          device=device, limit_val_samples=3)
+                val_losses, recal_sets, precision_sets, APs = eval(model, data_loader, criterion, outputs_dir, iteration=iterations,
+                                                              device=device, limit_val_samples=3)
 
-            plotter.report_validation_metrics(val_losses, recal_sets, precision_sets, APs, iterations)
-            plotter.plot(outputs_dir)
+                plotter.report_validation_metrics(val_losses, recal_sets, precision_sets, APs, iterations)
+                plotter.plot(outputs_dir)
 
-            checkpoint = {
-                'iterations': iterations,
-                'model': model.state_dict(),
-                'optimizer': optimizer.state_dict()}
+                checkpoint = {
+                    'iterations': iterations,
+                    'model': model.state_dict(),
+                    'optimizer': optimizer.state_dict()}
 
-            torch.save(checkpoint, os.path.join(outputs_dir, 'checkpoints', f"iteration_{iterations}.pth"))
+                torch.save(checkpoint, os.path.join(outputs_dir, 'checkpoints', f"iteration_{iterations}.pth"))
 
-        if iterations == num_steps:
-            break
+            if iterations == num_steps:
+                break
+        epoch += 1

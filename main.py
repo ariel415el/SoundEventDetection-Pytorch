@@ -8,8 +8,8 @@ from utils.common import WeightedBCE
 
 
 def get_spectogram_dataset_model_and_criterion(args):
-    from dataset.spectogram_features.spectograms_dataset import preprocess_film_clap_data, SpectogramDataset, preprocess_tau_sed_data
-    from dataset.spectogram_features import spectogram_configs as cfg
+    from dataset.spectogram.spectograms_dataset import preprocess_film_clap_data, SpectogramDataset, preprocess_tau_sed_data
+    from dataset.spectogram import spectogram_configs as cfg
     from models.spectogram_models import Cnn_AvgPooling
 
     # Define the dataset
@@ -70,8 +70,8 @@ def get_waveform_dataset_and_model(args):
 
     criterion = WeightedBCE(recall_factor=args.recall_priority, multi_frame=False)
 
-
     return dataset, model, criterion, cfg_descriptor
+
 
 def get_dataset_and_model(args):
     if args.train_features.lower() == "spectogram":
@@ -86,7 +86,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Example of parser. ')
 
     # Traininng
-    parser.add_argument('--dataset_name', type=str, default='TAU', help='FilmClap or TAU')
+    parser.add_argument('--dataset_name', type=str, default='FilmClap', help='FilmClap or TAU')
     parser.add_argument('--train_features', type=str, default='Spectogram', help='Spectogram or Waveform')
     parser.add_argument('--preprocess_mode', type=str, default='logMel', help='logMel or Complex; relevant only for Spectogram features')
     parser.add_argument('--force_preprocess', action='store_true', default=False, help='relevant only for Spectogram features')
@@ -95,20 +95,20 @@ if __name__ == '__main__':
     parser.add_argument('--dataset_dir', type=str, default='../data', help='Directory of dataset.')
     parser.add_argument('--outputs_root', type=str, default='training_dir')
     parser.add_argument('--ckpt', type=str, default='')
-    parser.add_argument('--val_descriptor', default=0.15, help='float for percentage string for specifying fold substring')
+    parser.add_argument('--val_descriptor', default=0.2, help='float for percentage string for specifying fold substring')
     parser.add_argument('--train_tag', type=str, default='')
 
     # Training tricks
     parser.add_argument('--augment_data', action='store_true', default=False)
     parser.add_argument('--balance_classes', action='store_true', default=False,
                         help='Whether to make sure there is same number of samples with and without events')
-    parser.add_argument('--recall_priority', type=float, default=10, help='priority factor for the bce loss')
+    parser.add_argument('--recall_priority', type=float, default=1, help='priority factor for the bce loss')
 
     # Hyper parameters
     parser.add_argument('--batch_size', type=int, default=64)
-    parser.add_argument('--lr', type=float, default=0.001)
-    parser.add_argument('--num_train_steps', type=int, default=1e+6)
-    parser.add_argument('--log_freq', type=int, default=500)
+    parser.add_argument('--lr', type=float, default=0.000001)
+    parser.add_argument('--num_train_steps', type=int, default=100000)
+    parser.add_argument('--log_freq', type=int, default=5000)
 
     # Infrastructure
     parser.add_argument('--device', default='cuda:0', type=str)

@@ -1,6 +1,6 @@
-from dataset.spectogram_features.preprocess import multichannel_stft, multichannel_complex_to_log_mel
+from dataset.spectogram.preprocess import multichannel_stft, multichannel_complex_to_log_mel
 from dataset.dataset_utils import read_multichannel_audio
-from dataset.spectogram_features import spectogram_configs as cfg
+from dataset.spectogram import spectogram_configs as cfg
 import matplotlib.pyplot as plt
 import numpy as np
 import soundfile
@@ -8,14 +8,15 @@ import matplotlib
 matplotlib.use('TkAgg')
 
 if __name__ == '__main__':
-    # audio_path = '/home/ariel/projects/sound/data/Film_take_clap/original/Meron/S05A-S07AT2.WAV'
-    # audio_path = '/home/ariel/projects/sound/data/Film_take_clap/raw/JackRinger-05/161019_1233.wav'
-    # audio_path = '/home/ariel/projects/sound/data/Film_take_clap/raw/DyingWithYou/1A-T002.WAV'
+    # audio_path = '/home/ariel/projects/sound/data/FilmClap/original/Meron/S05A-S07AT2.WAV'
+    # audio_path = '/home/ariel/projects/sound/data/FilmClap/original/JackRinger-05/161019_1233.wav'
+    audio_path = '/home/ariel/projects/sound/data/FilmClap/original/JackRinger-04/MixPre-094.wav'
+    # audio_path = '/home/ariel/projects/sound/data/FilmClap/original/DyingWithYou/1A-T002.WAV'
     # audio_path = '/home/ariel/projects/sound/data/FilmClap/original/Meron/S015-S001T2.WAV'
-    audio_path = '/home/ariel/projects/sound/data/FilmClap/original/Meron/S14_12-02T2.WAV'
+    # audio_path = '/home/ariel/projects/sound/data/FilmClap/original/Meron/S14_12-02T2.WAV'
     # audio_path = 'samples/StillJames_2B-T002.WAV'
-    sec_start = 11.78
-    sec_end = 11.98
+    sec_start = 33.875
+    sec_end = 34.075
 
     multichannel_waveform = read_multichannel_audio(audio_path=audio_path, target_fs=cfg.working_sample_rate)
 

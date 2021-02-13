@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import soundfile
 
-from dataset.spectogram_features import spectogram_configs as cfg
+from dataset.spectogram import spectogram_configs as cfg
 
 
 def get_film_clap_paths_and_labels(data_root, time_margin=0.1):
