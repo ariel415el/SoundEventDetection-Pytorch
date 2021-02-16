@@ -1,6 +1,6 @@
 from utils.common import human_format
 
-time_margin = 0.1
+time_margin = 0.25
 working_sample_rate = 48000
 frame_size = int(working_sample_rate * time_margin * 2)
 hop_size = frame_size // 2

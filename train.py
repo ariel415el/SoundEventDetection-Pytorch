@@ -87,9 +87,11 @@ def train(model, data_loader, criterion, num_steps, lr, log_freq, outputs_dir, d
     iterations = 0
     epoch = 0
     training_start_time = time()
-    tqdm_bar = tqdm(data_loader)
+    tqdm_bar = tqdm(total=num_steps)
+    tqdm_bar.set_description("Waiting for information..")
     while iterations < num_steps:
-        for (batch_features, event_labels) in tqdm_bar:
+        for (batch_features, event_labels) in data_loader:
+            tqdm_bar.update()
             # forward
             model.train()
             batch_outputs = model(batch_features.to(device).float())
@@ -113,7 +115,7 @@ def train(model, data_loader, criterion, num_steps, lr, log_freq, outputs_dir, d
                     f"epoch: {epoch}, step: {iterations}, loss: {loss.item():.2f}, im/sec: {im_sec:.1f}, lr: {optimizer.param_groups[0]['lr']:.8f}")
 
                 val_losses, recal_sets, precision_sets, APs = eval(model, data_loader, criterion, outputs_dir, iteration=iterations,
-                                                              device=device, limit_val_samples=3)
+                                                                   device=device, limit_val_samples=3)
 
                 plotter.report_validation_metrics(val_losses, recal_sets, precision_sets, APs, iterations)
                 plotter.plot(outputs_dir)

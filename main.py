@@ -86,13 +86,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Example of parser. ')
 
     # Traininng
+    parser.add_argument('--dataset_dir', type=str, default='../data', help='Directory of dataset.')
     parser.add_argument('--dataset_name', type=str, default='FilmClap', help='FilmClap or TAU')
-    parser.add_argument('--train_features', type=str, default='Spectogram', help='Spectogram or Waveform')
+    parser.add_argument('--train_features', type=str, default='Waveform', help='Spectogram or Waveform')
+
+    # Spectogram only arguments
     parser.add_argument('--preprocess_mode', type=str, default='logMel', help='logMel or Complex; relevant only for Spectogram features')
     parser.add_argument('--force_preprocess', action='store_true', default=False, help='relevant only for Spectogram features')
 
     # Train
-    parser.add_argument('--dataset_dir', type=str, default='../data', help='Directory of dataset.')
     parser.add_argument('--outputs_root', type=str, default='training_dir')
     parser.add_argument('--ckpt', type=str, default='')
     parser.add_argument('--val_descriptor', default=0.2, help='float for percentage string for specifying fold substring')
@@ -102,10 +104,10 @@ if __name__ == '__main__':
     parser.add_argument('--augment_data', action='store_true', default=False)
     parser.add_argument('--balance_classes', action='store_true', default=False,
                         help='Whether to make sure there is same number of samples with and without events')
-    parser.add_argument('--recall_priority', type=float, default=1, help='priority factor for the bce loss')
+    parser.add_argument('--recall_priority', type=float, default=5, help='priority factor for the bce loss')
 
     # Hyper parameters
-    parser.add_argument('--batch_size', type=int, default=64)
+    parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--lr', type=float, default=0.000001)
     parser.add_argument('--num_train_steps', type=int, default=100000)
     parser.add_argument('--log_freq', type=int, default=5000)

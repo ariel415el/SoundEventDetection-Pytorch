@@ -8,15 +8,13 @@ import matplotlib
 matplotlib.use('TkAgg')
 
 if __name__ == '__main__':
-    # audio_path = '/home/ariel/projects/sound/data/FilmClap/original/Meron/S05A-S07AT2.WAV'
+    # audio_path = '/home/ariel/projects/sound/data/FilmClap/original/Meron/S005-S004T1.WAV'
+    # audio_path = '/home/ariel/projects/sound/data/FilmClap/original/StillJames/2C-T001.WAV'
     # audio_path = '/home/ariel/projects/sound/data/FilmClap/original/JackRinger-05/161019_1233.wav'
-    audio_path = '/home/ariel/projects/sound/data/FilmClap/original/JackRinger-04/MixPre-094.wav'
-    # audio_path = '/home/ariel/projects/sound/data/FilmClap/original/DyingWithYou/1A-T002.WAV'
-    # audio_path = '/home/ariel/projects/sound/data/FilmClap/original/Meron/S015-S001T2.WAV'
-    # audio_path = '/home/ariel/projects/sound/data/FilmClap/original/Meron/S14_12-02T2.WAV'
-    # audio_path = 'samples/StillJames_2B-T002.WAV'
-    sec_start = 33.875
-    sec_end = 34.075
+    audio_path = '/home/ariel/projects/sound/data/FilmClap/original/StillJames/8D-T001.WAV'
+
+    sec_start = 35.45
+    sec_end = 35.65
 
     multichannel_waveform = read_multichannel_audio(audio_path=audio_path, target_fs=cfg.working_sample_rate)
 
@@ -27,7 +25,7 @@ if __name__ == '__main__':
     feature = multichannel_complex_to_log_mel(feature)
 
     frames_num = feature.shape[1]
-    tick_hop = frames_num // 20
+    tick_hop = max(1, frames_num // 20)
     xticks = np.concatenate((np.arange(0, frames_num - tick_hop, tick_hop), [frames_num]))
     xlabels = [f"{x / cfg.frames_per_second:.3f}s" for x in xticks]
 

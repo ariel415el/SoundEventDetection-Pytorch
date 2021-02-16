@@ -27,8 +27,8 @@ def compute_recall_precision(O, T):
     num_gt = T.sum()
     num_positives = O.sum()
 
-    recall = float(TP) / float(num_gt) if num_gt > 0 else 0
-    prec = (float(TP) / float(num_positives)) if num_positives > 0 else 1
+    recall = float(TP) / float(num_gt) if num_gt > 0 else 1
+    prec = float(TP) / float(num_positives) if num_positives > 0 else 1
 
     return recall, prec
 
