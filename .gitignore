@@ -8,3 +8,7 @@ __pycache__/
 /processed_datasets/
 /Successfull_Train_dir/
 *.pth
+Classical_methods/svm-classification.png
+Classical_methods/plots
+
+tmp_file.WAV

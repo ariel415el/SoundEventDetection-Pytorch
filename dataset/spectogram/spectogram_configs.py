@@ -1,28 +1,13 @@
 from utils.common import human_format
+import numpy as np
+from dataset.common_config import *
 
-# Clap details:
-time_margin = 0.04  # Time gap around the sepecified event point to be considered as a True s
+NFFT = 2**int(np.ceil(np.log2(frame_size)))  # The size of the padded frames on which fft will actualy work. Set this to a power of two for faster preprocessing
+mel_bins = 64                                # How much frames to stretch over the
+mel_min_freq = 20                            # Hz first mel bin (minimal possible value 0)
+mel_max_freq = working_sample_rate // 2      # Hz last mel bin (maximal possible value sampling_rate / 2)
 
-working_sample_rate = 48000  # resample all waveforms to this sampling rate
-NFFT = 2 ** 12  # The size of the padded frames on which fft will actualy work. Set this to a power of two for faster preprocessing
-frame_size = 4000  # Size of frames on to extract spectogram form
-hop_size = 2000  # Gap between frames: there are (sample_rate / hop_size) frames per second
-mel_bins = 64    # How much frames to stretch over the
-mel_min_freq = 20  # Hz first mel bin (minimal possible value 0)
-mel_max_freq = working_sample_rate // 2  # Hz last mel bin (maximal possible value sampling_rate / 2)
-audio_channels = 1   # Restrict data to only the audio_channels first channels of the audio file
-
-frames_per_second = working_sample_rate // hop_size
 train_crop_size = frames_per_second * 10  # 10-second log mel spectrogram as input
-
-
-# Tau-SED details:
-# tau_sed_labels = ['knock', 'drawer', 'clearthroat', 'phone', 'keysDrop', 'speech',
-#           'keyboard', 'pageturn', 'cough', 'doorslam', 'laughter']
-
-# tau_sed_labels = ['knock', 'keysDrop', 'doorslam']
-tau_sed_labels = ['doorslam']
-classes_num = len(tau_sed_labels)
 
 
 cfg_descriptor = f"Spectogram_SaR-{human_format(working_sample_rate)}_FrS-{human_format(frame_size)}" \
